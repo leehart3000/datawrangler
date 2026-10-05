@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+
+# Secrets (never commit these)
+.env
+.env.*
+!.env.example
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build output
+dist/
+build/
+*.egg-info/
+docs/_build/
+
+# Playwright test output
+test-results/
+playwright-report/
+
+# Local data files
+*.duckdb
+*.duckdb.wal
+
+# macOS
+.DS_Store
