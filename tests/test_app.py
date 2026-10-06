@@ -1,11 +1,11 @@
 from datawrangler.app import create_app
 
 
-def test_home_page_says_hello() -> None:
+def test_home_page_shows_title() -> None:
     client = create_app().test_client()
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Hello from DataWrangler!" in response.data
+    assert b"<h1>DataWrangler</h1>" in response.data
 
 
 def test_request_via_cloudflare_is_accepted() -> None:

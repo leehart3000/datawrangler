@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 
@@ -11,6 +11,6 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index() -> str:
-        return "Hello from DataWrangler!"
+        return render_template("index.html")
 
     return app
