@@ -1,5 +1,15 @@
 stages:
   - check
+  - build
+  - deploy
+
+variables:
+  GCP_PROJECT_ID: datawrangler-org
+  GCP_REGION: europe-west2
+  WIF_PROVIDER: projects/722150411150/locations/global/workloadIdentityPools/gitlab/providers/gitlab-com
+  DEPLOYER_SA: gitlab-deployer@datawrangler-org.iam.gserviceaccount.com
+  RUNTIME_SA: datawrangler-run@datawrangler-org.iam.gserviceaccount.com
+  IMAGE: europe-west2-docker.pkg.dev/datawrangler-org/datawrangler/datawrangler:$CI_COMMIT_SHORT_SHA
 
 default:
   image: python:3.14-slim
@@ -22,3 +32,41 @@ test:
   stage: check
   script:
     - uv run pytest
+
+build:
+  stage: build
+  image: docker:29
+  services:
+    - docker:29-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  id_tokens:
+    GCP_ID_TOKEN:
+      aud: https://iam.googleapis.com/projects/722150411150/locations/global/workloadIdentityPools/gitlab/providers/gitlab-com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - sh ci/gcp-access-token.sh | docker login -u oauth2accesstoken --password-stdin https://europe-west2-docker.pkg.dev
+    - docker build --platform linux/amd64 -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+deploy:
+  stage: deploy
+  image: google/cloud-sdk:slim
+  id_tokens:
+    GCP_ID_TOKEN:
+      aud: https://iam.googleapis.com/projects/722150411150/locations/global/workloadIdentityPools/gitlab/providers/gitlab-com
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  resource_group: production
+  environment:
+    name: production
+    url: https://datawrangler.org
+  before_script: []
+  script:
+    - echo "$GCP_ID_TOKEN" > /tmp/gcp_id_token.jwt
+    - gcloud iam workload-identity-pools create-cred-config "$WIF_PROVIDER" --service-account="$DEPLOYER_SA" --credential-source-file=/tmp/gcp_id_token.jwt --output-file=/tmp/gcp_credentials.json
+    - gcloud auth login --cred-file=/tmp/gcp_credentials.json --quiet
+    - gcloud run deploy datawrangler --image="$IMAGE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --service-account="$RUNTIME_SA" --max-instances=2 --memory=512Mi --quiet
