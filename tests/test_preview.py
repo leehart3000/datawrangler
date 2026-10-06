@@ -28,3 +28,26 @@ def test_preview_without_file_shows_error() -> None:
     response = client.post("/preview", data={}, content_type="multipart/form-data")
     assert response.status_code == 400
     assert b"Please choose a CSV file." in response.data
+
+
+def test_htmx_preview_returns_only_the_result() -> None:
+    client = create_app().test_client()
+    data = {"file": (io.BytesIO(b"name,age\nAda,36\nAlan,41\n"), "people.csv")}
+    response = client.post(
+        "/preview",
+        data=data,
+        content_type="multipart/form-data",
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert b"Ada" in response.data
+    assert b"<html" not in response.data
+
+
+def test_too_large_upload_is_rejected() -> None:
+    client = create_app().test_client()
+    big_file = io.BytesIO(b"a" * (10 * 1024 * 1024 + 1))
+    data = {"file": (big_file, "big.csv")}
+    response = client.post("/preview", data=data, content_type="multipart/form-data")
+    assert response.status_code == 413
+    assert b"too big" in response.data

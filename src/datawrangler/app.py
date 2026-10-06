@@ -4,6 +4,7 @@ from pathlib import Path
 
 import duckdb
 from flask import Flask, render_template, request
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from datawrangler.wrangling import preview_csv
@@ -16,6 +17,13 @@ def _file_fingerprint(path: Path) -> str:
     if not path.exists():
         return "dev"
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+def _result_template() -> str:
+    """For htmx requests, reply with just the result section; otherwise the whole page."""
+    if request.headers.get("HX-Request") == "true":
+        return "_result.html"
+    return "index.html"
 
 
 def create_app() -> Flask:
@@ -35,10 +43,11 @@ def create_app() -> Flask:
         return render_template("index.html")
 
     @app.post("/preview")
-    def preview() -> str | tuple[str, int]:
+    def preview() -> tuple[str, int]:
+        template = _result_template()
         upload = request.files.get("file")
         if upload is None or not upload.filename:
-            return render_template("index.html", error="Please choose a CSV file."), 400
+            return render_template(template, error="Please choose a CSV file."), 400
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "upload.csv"
@@ -47,8 +56,13 @@ def create_app() -> Flask:
                 result = preview_csv(path)
             except duckdb.Error:
                 error = "Sorry, we couldn't read that file as a CSV."
-                return render_template("index.html", error=error), 400
+                return render_template(template, error=error), 400
 
-        return render_template("preview.html", preview=result, filename=upload.filename)
+        return render_template(template, preview=result, filename=upload.filename), 200
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def too_large(error: RequestEntityTooLarge) -> tuple[str, int]:
+        message = "That file is too big. The limit is 10 MB."
+        return render_template(_result_template(), error=message), 413
 
     return app
