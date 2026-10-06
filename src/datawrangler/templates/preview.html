@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ filename }} · DataWrangler{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" class="text-sm text-blue-700 hover:underline">← Upload another file</a>
+
+<h1 class="mt-4 text-2xl font-bold">{{ filename }}</h1>
+<p class="mt-1 text-slate-600">
+  {{ preview.row_count }} rows, {{ preview.columns | length }} columns.
+  Showing the first {{ preview.rows | length }}.
+</p>
+
+<div class="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+  <table class="min-w-full text-left text-sm">
+    <thead class="bg-slate-100">
+      <tr>
+        {% for column in preview.columns %}
+        <th class="px-3 py-2 font-semibold">
+          {{ column.name }}
+          <div class="text-xs font-normal text-slate-500">{{ column.type }}</div>
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for row in preview.rows %}
+      <tr>
+        {% for value in row %}
+        <td class="whitespace-nowrap px-3 py-2">
+          {% if value is none %}<span class="text-slate-400">empty</span>{% else %}{{ value }}{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

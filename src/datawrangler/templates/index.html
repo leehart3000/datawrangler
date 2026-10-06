@@ -3,4 +3,17 @@
 {% block content %}
 <h1 class="text-4xl font-bold tracking-tight">DataWrangler</h1>
 <p class="mt-4 text-lg text-slate-600">Clean, check and prepare your data. No coding needed.</p>
+
+<form action="{{ url_for('preview') }}" method="post" enctype="multipart/form-data"
+      class="mt-8 space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+  <label for="file" class="block font-medium">Choose a CSV file (up to 10 MB)</label>
+  <input id="file" name="file" type="file" accept=".csv,text/csv" required
+         class="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
+  {% if error %}
+  <p class="text-sm text-red-700">{{ error }}</p>
+  {% endif %}
+  <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500">
+    Preview
+  </button>
+</form>
 {% endblock %}
