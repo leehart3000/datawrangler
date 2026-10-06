@@ -6,3 +6,15 @@ def test_home_page_says_hello() -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert b"Hello from DataWrangler!" in response.data
+
+
+def test_request_via_cloudflare_is_accepted() -> None:
+    client = create_app().test_client()
+    response = client.get("/", headers={"X-Forwarded-Host": "datawrangler.org"})
+    assert response.status_code == 200
+
+
+def test_unknown_host_is_rejected() -> None:
+    client = create_app().test_client()
+    response = client.get("/", headers={"X-Forwarded-Host": "evil.example"})
+    assert response.status_code == 400
