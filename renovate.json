@@ -4,6 +4,13 @@
   "timezone": "Europe/London",
   "schedule": ["before 6am on monday"],
   "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Python itself is tracked via .python-version and the Docker images",
+      "matchDepTypes": ["requires-python"],
+      "enabled": false
+    }
+  ],
   "customManagers": [
     {
       "customType": "regex",
