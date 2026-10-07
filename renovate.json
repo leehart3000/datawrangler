@@ -22,12 +22,11 @@
     },
     {
       "customType": "regex",
-      "description": "Tailwind standalone CLI in the Dockerfile",
+      "description": "Tailwind standalone CLI in the Dockerfile (same version numbers as the npm package)",
       "managerFilePatterns": ["/^Dockerfile$/"],
       "matchStrings": ["tailwindcss/releases/download/v(?<currentValue>[0-9.]+)/"],
-      "depNameTemplate": "tailwindlabs/tailwindcss",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
+      "depNameTemplate": "tailwindcss",
+      "datasourceTemplate": "npm"
     }
   ]
 }
