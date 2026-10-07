@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/London",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "uv installed with pip in .gitlab-ci.yml",
+      "managerFilePatterns": ["/^\\.gitlab-ci\\.yml$/"],
+      "matchStrings": ["pip install --quiet uv==(?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "uv",
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "description": "Tailwind standalone CLI in the Dockerfile",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": ["tailwindcss/releases/download/v(?<currentValue>[0-9.]+)/"],
+      "depNameTemplate": "tailwindlabs/tailwindcss",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
+}
