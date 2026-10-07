@@ -33,6 +33,18 @@ test:
   script:
     - uv run pytest
 
+secrets:
+  stage: check
+  image:
+    name: trufflesecurity/trufflehog:3.99.0
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: 0
+  before_script: []
+  script:
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - trufflehog git file://. --fail --no-update
+
 build:
   stage: build
   image: docker:29
