@@ -3,14 +3,21 @@ import tempfile
 from pathlib import Path
 
 import duckdb
-from flask import Flask, render_template, request
+from flask import Flask, Response, render_template, request
 from pydantic import ValidationError
+from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import secure_filename
 
-from datawrangler.wrangling import CleaningOptions, clean_csv
+from datawrangler.wrangling import CleaningOptions, clean_csv, write_clean_csv
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+CSV_ERROR = "Sorry, we couldn't read that file as a CSV."
+
+
+class UploadError(Exception):
+    """A problem with what the visitor sent, with a message they can understand."""
 
 
 def _file_fingerprint(path: Path) -> str:
@@ -25,6 +32,18 @@ def _result_template() -> str:
     if request.headers.get("HX-Request") == "true":
         return "_result.html"
     return "index.html"
+
+
+def _get_upload_and_options() -> tuple[FileStorage, CleaningOptions]:
+    """Read the uploaded file and the ticked cleaning options from the form."""
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        raise UploadError("Please choose a CSV file.")
+    try:
+        options = CleaningOptions.model_validate(request.form.to_dict())
+    except ValidationError as exc:
+        raise UploadError("Sorry, those cleaning options weren't valid.") from exc
+    return upload, options
 
 
 def create_app() -> Flask:
@@ -45,33 +64,45 @@ def create_app() -> Flask:
 
     @app.post("/preview")
     def preview() -> tuple[str, int]:
-        template = _result_template()
-        upload = request.files.get("file")
-        if upload is None or not upload.filename:
-            return render_template(template, error="Please choose a CSV file."), 400
-
-        try:
-            options = CleaningOptions.model_validate(request.form.to_dict())
-        except ValidationError:
-            error = "Sorry, those cleaning options weren't valid."
-            return render_template(template, error=error), 400
-
+        upload, options = _get_upload_and_options()
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "upload.csv"
             upload.save(path)
             try:
                 result, report = clean_csv(path, options)
-            except duckdb.Error:
-                error = "Sorry, we couldn't read that file as a CSV."
-                return render_template(template, error=error), 400
+            except duckdb.Error as exc:
+                raise UploadError(CSV_ERROR) from exc
 
         return render_template(
-            template,
+            _result_template(),
             preview=result,
             report=report,
             options=options,
             filename=upload.filename,
         ), 200
+
+    @app.post("/download")
+    def download() -> Response:
+        upload, options = _get_upload_and_options()
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "upload.csv"
+            output = Path(tmp) / "cleaned.csv"
+            upload.save(source)
+            try:
+                write_clean_csv(source, options, output)
+            except duckdb.Error as exc:
+                raise UploadError(CSV_ERROR) from exc
+            data = output.read_bytes()
+
+        stem = Path(secure_filename(upload.filename or "")).stem or "data"
+        disposition = f'attachment; filename="{stem}-cleaned.csv"'
+        return Response(
+            data, mimetype="text/csv", headers={"Content-Disposition": disposition}
+        )
+
+    @app.errorhandler(UploadError)
+    def upload_error(error: UploadError) -> tuple[str, int]:
+        return render_template(_result_template(), error=str(error)), 400
 
     @app.errorhandler(RequestEntityTooLarge)
     def too_large(error: RequestEntityTooLarge) -> tuple[str, int]:

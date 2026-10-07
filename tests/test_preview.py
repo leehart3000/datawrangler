@@ -11,7 +11,8 @@ def test_preview_csv_reads_columns_and_rows(tmp_path: Path) -> None:
     result = preview_csv(path)
     assert [column.name for column in result.columns] == ["name", "age"]
     assert result.row_count == 2
-    assert result.rows[0] == ("Ada", 36)
+    assert result.rows[0] == ("Ada", "36")
+    assert [column.type for column in result.columns] == ["VARCHAR", "BIGINT"]
 
 
 def test_preview_page_shows_uploaded_data() -> None:
