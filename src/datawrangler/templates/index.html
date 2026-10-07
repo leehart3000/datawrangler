@@ -5,9 +5,11 @@
 <p class="mt-4 text-lg text-slate-600">Clean, check and prepare your data. No coding needed.</p>
 
 <form action="{{ url_for('preview') }}" method="post" enctype="multipart/form-data"
+      x-data="{ hasFile: false }" x-init="hasFile = $refs.file.files.length > 0"
       class="mt-8 space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
   <label for="file" class="block font-medium">Choose a CSV file (up to 10 MB)</label>
   <input id="file" name="file" type="file" accept=".csv,text/csv" required
+         x-ref="file" @change="hasFile = $event.target.files.length > 0"
          class="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
 
   <fieldset class="space-y-2">
@@ -27,16 +29,17 @@
   </fieldset>
 
   <div class="flex flex-wrap items-center gap-3">
-    <button type="submit"
+    <button type="submit" :disabled="!hasFile"
             hx-post="{{ url_for('preview') }}" hx-target="#result" hx-encoding="multipart/form-data"
             hx-validate="true" hx-disabled-elt="this" hx-indicator="#working"
-            class="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50">
+            class="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
       Preview
     </button>
-    <button type="submit" formaction="{{ url_for('download') }}"
-            class="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-50">
+    <button type="submit" formaction="{{ url_for('download') }}" :disabled="!hasFile"
+            class="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
       Download cleaned CSV
     </button>
+    <span x-show="!hasFile" class="text-sm text-slate-500">Choose a file to get started.</span>
     <span id="working" class="htmx-indicator text-sm text-slate-500">Reading your file…</span>
   </div>
 </form>
