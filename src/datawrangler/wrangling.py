@@ -3,6 +3,18 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+from pydantic import BaseModel
+
+# A temporary column used to remember each row's original position.
+ROW_ID = "__datawrangler_row"
+
+
+class CleaningOptions(BaseModel):
+    """Which cleaning steps to apply. Each one is off unless switched on."""
+
+    trim_whitespace: bool = False
+    remove_empty_rows: bool = False
+    remove_duplicates: bool = False
 
 
 @dataclass(frozen=True)
@@ -18,14 +30,71 @@ class Preview:
     row_count: int
 
 
-def preview_csv(path: Path, limit: int = 20) -> Preview:
-    """Read a CSV file and return its columns, row count and first few rows."""
+@dataclass(frozen=True)
+class CleaningReport:
+    rows_before: int
+    empty_rows_removed: int
+    duplicates_removed: int
+
+
+def _quote(name: str) -> str:
+    """Quote a column name for SQL, so any name (even with spaces or quotes) is safe."""
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _count(relation: duckdb.DuckDBPyRelation) -> int:
+    result = relation.aggregate("count(*)").fetchone()
+    return int(result[0]) if result else 0
+
+
+def clean_csv(
+    path: Path, options: CleaningOptions, limit: int = 20
+) -> tuple[Preview, CleaningReport]:
+    """Read a CSV file, apply the chosen cleaning steps, and preview the result."""
     with duckdb.connect() as con:
         relation = con.read_csv(str(path))
-        columns = [
-            Column(name, str(type_))
-            for name, type_ in zip(relation.columns, relation.types, strict=True)
-        ]
-        count = relation.aggregate("count(*)").fetchone()
+        names = relation.columns
+        types = [str(type_) for type_ in relation.types]
+        quoted = [_quote(name) for name in names]
+        rows_before = _count(relation)
+
+        # Number the rows, so the original order can be restored at the end.
+        relation = relation.project(f"*, row_number() OVER () AS {ROW_ID}")
+
+        if options.trim_whitespace:
+            expressions = [
+                f"NULLIF(trim({q}), '') AS {q}" if type_ == "VARCHAR" else q
+                for q, type_ in zip(quoted, types, strict=True)
+            ]
+            relation = relation.project(", ".join([*expressions, ROW_ID]))
+
+        empty_rows_removed = 0
+        if options.remove_empty_rows:
+            before = _count(relation)
+            relation = relation.filter(" OR ".join(f"{q} IS NOT NULL" for q in quoted))
+            empty_rows_removed = before - _count(relation)
+
+        duplicates_removed = 0
+        if options.remove_duplicates:
+            before = _count(relation)
+            relation = relation.query(
+                "data",
+                "SELECT * FROM data QUALIFY row_number() OVER "
+                f"(PARTITION BY {', '.join(quoted)} ORDER BY {ROW_ID}) = 1",
+            )
+            duplicates_removed = before - _count(relation)
+
+        relation = relation.order(ROW_ID).project(", ".join(quoted))
         rows = relation.limit(limit).fetchall()
-    return Preview(columns=columns, rows=rows, row_count=int(count[0]) if count else 0)
+        row_count = _count(relation)
+
+    columns = [Column(name, type_) for name, type_ in zip(names, types, strict=True)]
+    preview = Preview(columns=columns, rows=rows, row_count=row_count)
+    report = CleaningReport(rows_before, empty_rows_removed, duplicates_removed)
+    return preview, report
+
+
+def preview_csv(path: Path, limit: int = 20) -> Preview:
+    """Read a CSV file and preview it without any cleaning."""
+    preview, _ = clean_csv(path, CleaningOptions(), limit)
+    return preview

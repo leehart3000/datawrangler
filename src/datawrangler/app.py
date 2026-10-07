@@ -4,10 +4,11 @@ from pathlib import Path
 
 import duckdb
 from flask import Flask, render_template, request
+from pydantic import ValidationError
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from datawrangler.wrangling import preview_csv
+from datawrangler.wrangling import CleaningOptions, clean_csv
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
@@ -49,16 +50,28 @@ def create_app() -> Flask:
         if upload is None or not upload.filename:
             return render_template(template, error="Please choose a CSV file."), 400
 
+        try:
+            options = CleaningOptions.model_validate(request.form.to_dict())
+        except ValidationError:
+            error = "Sorry, those cleaning options weren't valid."
+            return render_template(template, error=error), 400
+
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "upload.csv"
             upload.save(path)
             try:
-                result = preview_csv(path)
+                result, report = clean_csv(path, options)
             except duckdb.Error:
                 error = "Sorry, we couldn't read that file as a CSV."
                 return render_template(template, error=error), 400
 
-        return render_template(template, preview=result, filename=upload.filename), 200
+        return render_template(
+            template,
+            preview=result,
+            report=report,
+            options=options,
+            filename=upload.filename,
+        ), 200
 
     @app.errorhandler(RequestEntityTooLarge)
     def too_large(error: RequestEntityTooLarge) -> tuple[str, int]:

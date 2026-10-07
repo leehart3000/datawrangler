@@ -3,6 +3,6 @@
 set -e
 
 uv run ruff format
-uv run ruff check
+uv run ruff check --fix
 uv run mypy src tests
 uv run pytest

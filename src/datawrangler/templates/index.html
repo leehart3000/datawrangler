@@ -11,6 +11,21 @@
   <label for="file" class="block font-medium">Choose a CSV file (up to 10 MB)</label>
   <input id="file" name="file" type="file" accept=".csv,text/csv" required
          class="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
+  <fieldset class="space-y-2">
+    <legend class="font-medium">Cleaning steps</legend>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="trim_whitespace" class="h-4 w-4 rounded border-slate-300">
+      Trim extra spaces (and treat blank cells as empty)
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="remove_empty_rows" class="h-4 w-4 rounded border-slate-300">
+      Remove empty rows
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="remove_duplicates" class="h-4 w-4 rounded border-slate-300">
+      Remove duplicate rows
+    </label>
+  </fieldset>
   <div class="flex items-center gap-3">
     <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50">
       Preview
