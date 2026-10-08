@@ -65,3 +65,17 @@ def test_download_saves_the_cleaned_file(
     assert download.suggested_filename == "messy-cleaned.csv"
     lines = Path(download.path()).read_text().splitlines()
     assert lines == ["name,city", "Ada,London", "Alan,Leeds"]
+
+
+def test_unticking_a_column_removes_it(
+    page: Page, live_server: str, messy_csv: Path
+) -> None:
+    page.goto(live_server)
+    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
+    page.get_by_label("city", exact=True).uncheck()
+    expect(page.get_by_text("Removed 1 column.")).to_be_visible()
+
+    with page.expect_download() as download_info:
+        page.get_by_role("button", name="Download cleaned CSV").click()
+    lines = Path(download_info.value.path()).read_text().splitlines()
+    assert lines[0] == "name"

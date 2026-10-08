@@ -1,3 +1,4 @@
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,18 @@ class CleaningOptions(BaseModel):
     trim_whitespace: bool = False
     remove_empty_rows: bool = False
     remove_duplicates: bool = False
+    # The columns to keep, and a fingerprint of the columns they were chosen for.
+    keep_columns: list[str] | None = None
+    columns_for: str | None = None
+
+
+class NoColumnsKeptError(Exception):
+    """Raised when every column has been unticked."""
+
+    def __init__(self, all_columns: list[str], signature: str) -> None:
+        super().__init__("Please keep at least one column.")
+        self.all_columns = all_columns
+        self.signature = signature
 
 
 @dataclass(frozen=True)
@@ -30,13 +43,22 @@ class Preview:
     columns: list[Column]
     rows: list[tuple[Any, ...]]
     row_count: int
+    all_columns: list[str]
+    columns_signature: str
 
 
 @dataclass(frozen=True)
 class CleaningReport:
     rows_before: int
+    columns_removed: int
     empty_rows_removed: int
     duplicates_removed: int
+
+
+def columns_signature(names: list[str]) -> str:
+    """A short fingerprint of a file's column names, to tell when a different file is chosen."""
+    joined = "\x1f".join(names)
+    return hashlib.sha256(joined.encode()).hexdigest()[:16]
 
 
 def _quote(name: str) -> str:
@@ -66,17 +88,34 @@ def _column_stats(
     ]
 
 
+def _columns_to_keep(all_names: list[str], options: CleaningOptions) -> list[str]:
+    """Work out which columns to keep. Choices made for a different file are ignored."""
+    if options.keep_columns is None or options.columns_for != columns_signature(
+        all_names
+    ):
+        return all_names
+    wanted = set(options.keep_columns)
+    kept = [name for name in all_names if name in wanted]
+    if not kept:
+        raise NoColumnsKeptError(all_names, columns_signature(all_names))
+    return kept
+
+
 def _apply_cleaning(
     con: duckdb.DuckDBPyConnection, path: Path, options: CleaningOptions
 ) -> tuple[duckdb.DuckDBPyRelation, CleaningReport]:
     """Read the CSV as exact text, and apply the chosen cleaning steps in order."""
     # all_varchar keeps every value exactly as written (so "007" stays "007").
     relation = con.read_csv(str(path), all_varchar=True)
-    quoted = [_quote(name) for name in relation.columns]
+    all_names = relation.columns
+    kept = _columns_to_keep(all_names, options)
+    quoted = [_quote(name) for name in kept]
     rows_before = _count(relation)
 
-    # Number the rows, so the original order can be restored at the end.
-    relation = relation.project(f"*, row_number() OVER () AS {ROW_ID}")
+    # Keep only the chosen columns, and number the rows so the order can be restored.
+    relation = relation.project(
+        ", ".join([*quoted, f"row_number() OVER () AS {ROW_ID}"])
+    )
 
     if options.trim_whitespace:
         expressions = [f"NULLIF(trim({q}), '') AS {q}" for q in quoted]
@@ -99,7 +138,12 @@ def _apply_cleaning(
         duplicates_removed = before - _count(relation)
 
     relation = relation.order(ROW_ID).project(", ".join(quoted))
-    report = CleaningReport(rows_before, empty_rows_removed, duplicates_removed)
+    report = CleaningReport(
+        rows_before=rows_before,
+        columns_removed=len(all_names) - len(kept),
+        empty_rows_removed=empty_rows_removed,
+        duplicates_removed=duplicates_removed,
+    )
     return relation, report
 
 
@@ -109,18 +153,30 @@ def clean_csv(
     """Apply the chosen cleaning steps and preview the result."""
     with duckdb.connect() as con:
         # DuckDB's guess at each column's type, shown as information only.
-        types = [str(type_) for type_ in con.read_csv(str(path)).types]
+        typed = con.read_csv(str(path))
+        type_by_name = {
+            name: str(type_)
+            for name, type_ in zip(typed.columns, typed.types, strict=True)
+        }
         relation, report = _apply_cleaning(con, path, options)
         names = relation.columns
         rows = relation.limit(limit).fetchall()
         row_count = _count(relation)
         stats = _column_stats(relation, row_count)
 
+    all_columns = list(type_by_name)
     columns = [
-        Column(name, type_, empty, distinct)
-        for name, type_, (empty, distinct) in zip(names, types, stats, strict=True)
+        Column(name, type_by_name[name], empty, distinct)
+        for name, (empty, distinct) in zip(names, stats, strict=True)
     ]
-    return Preview(columns=columns, rows=rows, row_count=row_count), report
+    preview = Preview(
+        columns=columns,
+        rows=rows,
+        row_count=row_count,
+        all_columns=all_columns,
+        columns_signature=columns_signature(all_columns),
+    )
+    return preview, report
 
 
 def write_clean_csv(path: Path, options: CleaningOptions, output: Path) -> None:

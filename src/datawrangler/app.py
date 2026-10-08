@@ -11,7 +11,12 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
-from datawrangler.wrangling import CleaningOptions, clean_csv, write_clean_csv
+from datawrangler.wrangling import (
+    CleaningOptions,
+    NoColumnsKeptError,
+    clean_csv,
+    write_clean_csv,
+)
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 CSV_ERROR = "Sorry, we couldn't read that file as a CSV."
@@ -50,13 +55,22 @@ def _result_template() -> str:
     return "index.html"
 
 
+def _form_data() -> dict[str, object]:
+    """The form's values, with the ticked columns gathered into a list."""
+    data: dict[str, object] = dict(request.form.items())
+    data.pop("keep_columns", None)
+    if "columns_for" in request.form:
+        data["keep_columns"] = request.form.getlist("keep_columns")
+    return data
+
+
 def _get_upload_and_options() -> tuple[FileStorage, CleaningOptions]:
     """Read the uploaded file and the ticked cleaning options from the form."""
     upload = request.files.get("file")
     if upload is None or not upload.filename:
         raise UploadError("Please choose a CSV file.")
     try:
-        options = CleaningOptions.model_validate(request.form.to_dict())
+        options = CleaningOptions.model_validate(_form_data())
     except ValidationError as exc:
         raise UploadError("Sorry, those cleaning options weren't valid.") from exc
     return upload, options
@@ -87,6 +101,14 @@ def create_app() -> Flask:
             upload.save(path)
             try:
                 result, report = clean_csv(path, options)
+            except NoColumnsKeptError as exc:
+                return render_template(
+                    _result_template(),
+                    error=str(exc),
+                    all_columns=exc.all_columns,
+                    columns_signature=exc.signature,
+                    kept_columns=[],
+                ), 400
             except duckdb.Error as exc:
                 raise UploadError(CSV_ERROR) from exc
 
@@ -96,6 +118,9 @@ def create_app() -> Flask:
             report=report,
             options=options,
             filename=upload.filename,
+            all_columns=result.all_columns,
+            columns_signature=result.columns_signature,
+            kept_columns=[column.name for column in result.columns],
         ), 200
 
     @app.post("/download")
@@ -107,6 +132,8 @@ def create_app() -> Flask:
             upload.save(source)
             try:
                 write_clean_csv(source, options, output)
+            except NoColumnsKeptError as exc:
+                raise UploadError(str(exc)) from exc
             except duckdb.Error as exc:
                 raise UploadError(CSV_ERROR) from exc
             data = output.read_bytes()
