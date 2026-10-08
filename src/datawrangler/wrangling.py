@@ -1,4 +1,5 @@
 import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ class CleaningOptions(BaseModel):
     trim_whitespace: bool = False
     remove_empty_rows: bool = False
     remove_duplicates: bool = False
+    tidy_column_names: bool = False
+    snake_case_column_names: bool = False
     # The columns to keep, and a fingerprint of the columns they were chosen for.
     keep_columns: list[str] | None = None
     columns_for: str | None = None
@@ -45,6 +48,7 @@ class Preview:
     row_count: int
     all_columns: list[str]
     columns_signature: str
+    kept_columns: list[str]
 
 
 @dataclass(frozen=True)
@@ -53,12 +57,34 @@ class CleaningReport:
     columns_removed: int
     empty_rows_removed: int
     duplicates_removed: int
+    names_changed: int
 
 
 def columns_signature(names: list[str]) -> str:
     """A short fingerprint of a file's column names, to tell when a different file is chosen."""
     joined = "\x1f".join(names)
     return hashlib.sha256(joined.encode()).hexdigest()[:16]
+
+
+def tidy_column_names(names: list[str], trim: bool, snake: bool) -> list[str]:
+    """Tidy column names, keeping them unique. Returns the names unchanged if neither option is on."""
+    if not (trim or snake):
+        return names
+    tidied: list[str] = []
+    seen: set[str] = set()
+    for position, name in enumerate(names, start=1):
+        new = " ".join(name.split())
+        if snake:
+            new = re.sub(r"\W+", "_", new.lower()).strip("_")
+        if not new:
+            new = f"column_{position}"
+        base, number = new, 2
+        while new in seen:
+            new = f"{base}_{number}"
+            number += 1
+        seen.add(new)
+        tidied.append(new)
+    return tidied
 
 
 def _quote(name: str) -> str:
@@ -103,7 +129,7 @@ def _columns_to_keep(all_names: list[str], options: CleaningOptions) -> list[str
 
 def _apply_cleaning(
     con: duckdb.DuckDBPyConnection, path: Path, options: CleaningOptions
-) -> tuple[duckdb.DuckDBPyRelation, CleaningReport]:
+) -> tuple[duckdb.DuckDBPyRelation, CleaningReport, list[str]]:
     """Read the CSV as exact text, and apply the chosen cleaning steps in order."""
     # all_varchar keeps every value exactly as written (so "007" stays "007").
     relation = con.read_csv(str(path), all_varchar=True)
@@ -137,14 +163,23 @@ def _apply_cleaning(
         )
         duplicates_removed = before - _count(relation)
 
-    relation = relation.order(ROW_ID).project(", ".join(quoted))
+    new_names = tidy_column_names(
+        kept,
+        trim=options.tidy_column_names,
+        snake=options.snake_case_column_names,
+    )
+    renamed = [
+        f"{q} AS {_quote(new)}" for q, new in zip(quoted, new_names, strict=True)
+    ]
+    relation = relation.order(ROW_ID).project(", ".join(renamed))
     report = CleaningReport(
         rows_before=rows_before,
         columns_removed=len(all_names) - len(kept),
         empty_rows_removed=empty_rows_removed,
         duplicates_removed=duplicates_removed,
+        names_changed=sum(old != new for old, new in zip(kept, new_names, strict=True)),
     )
-    return relation, report
+    return relation, report, kept
 
 
 def clean_csv(
@@ -158,7 +193,7 @@ def clean_csv(
             name: str(type_)
             for name, type_ in zip(typed.columns, typed.types, strict=True)
         }
-        relation, report = _apply_cleaning(con, path, options)
+        relation, report, kept = _apply_cleaning(con, path, options)
         names = relation.columns
         rows = relation.limit(limit).fetchall()
         row_count = _count(relation)
@@ -166,8 +201,8 @@ def clean_csv(
 
     all_columns = list(type_by_name)
     columns = [
-        Column(name, type_by_name[name], empty, distinct)
-        for name, (empty, distinct) in zip(names, stats, strict=True)
+        Column(name, type_by_name[original], empty, distinct)
+        for name, original, (empty, distinct) in zip(names, kept, stats, strict=True)
     ]
     preview = Preview(
         columns=columns,
@@ -175,6 +210,7 @@ def clean_csv(
         row_count=row_count,
         all_columns=all_columns,
         columns_signature=columns_signature(all_columns),
+        kept_columns=kept,
     )
     return preview, report
 
@@ -182,7 +218,7 @@ def clean_csv(
 def write_clean_csv(path: Path, options: CleaningOptions, output: Path) -> None:
     """Apply the chosen cleaning steps and save the result as a CSV file."""
     with duckdb.connect() as con:
-        relation, _ = _apply_cleaning(con, path, options)
+        relation, _, _ = _apply_cleaning(con, path, options)
         relation.write_csv(str(output))
 
 

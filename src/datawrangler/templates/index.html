@@ -31,6 +31,18 @@
       </label>
     </fieldset>
 
+    <fieldset class="space-y-2">
+      <legend class="font-medium">Column names</legend>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="tidy_column_names" class="h-4 w-4 rounded border-slate-300">
+        Tidy column names (trim and collapse extra spaces)
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="snake_case_column_names" class="h-4 w-4 rounded border-slate-300">
+        Make column names lowercase_with_underscores
+      </label>
+    </fieldset>
+
     <div class="flex flex-wrap items-center gap-3">
       <button type="submit" :disabled="!hasFile"
               hx-post="{{ url_for('preview') }}" hx-target="#result" hx-encoding="multipart/form-data"

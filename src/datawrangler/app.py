@@ -1,4 +1,5 @@
 import hashlib
+import re
 import tempfile
 from pathlib import Path
 
@@ -25,16 +26,19 @@ EXTRA_SPACE = Markup(
 )
 
 
-def _show_edge_spaces(value: object) -> Markup:
-    """Show spaces at the start or end of a value as highlighted dots."""
+def _show_extra_spaces(value: object) -> Markup:
+    """Show extra spaces as highlighted dots: at the start or end, and repeats in the middle."""
     text = str(value)
     if not text.strip():
         return EXTRA_SPACE * len(text)
     start = len(text) - len(text.lstrip())
     end = len(text.rstrip())
-    return (
-        EXTRA_SPACE * start + escape(text[start:end]) + EXTRA_SPACE * (len(text) - end)
+    middle = str(escape(text[start:end]))
+    # In each run of spaces, keep the first as a normal space and mark the rest.
+    middle = re.sub(
+        r"(?<= ) +", lambda match: str(EXTRA_SPACE * len(match.group())), middle
     )
+    return EXTRA_SPACE * start + Markup(middle) + EXTRA_SPACE * (len(text) - end)
 
 
 class UploadError(Exception):
@@ -84,7 +88,7 @@ def create_app() -> Flask:
     # Lets templates add a fingerprint to the CSS address, so browsers fetch new versions.
     css_path = Path(app.root_path) / "static" / "css" / "app.css"
     app.jinja_env.globals["css_version"] = _file_fingerprint(css_path)
-    app.jinja_env.filters["show_spaces"] = _show_edge_spaces
+    app.jinja_env.filters["show_spaces"] = _show_extra_spaces
 
     # Trust the X-Forwarded-Host and X-Forwarded-Proto labels from the Cloudflare Worker.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_host=1, x_proto=1)  # type: ignore[method-assign]
@@ -120,7 +124,7 @@ def create_app() -> Flask:
             filename=upload.filename,
             all_columns=result.all_columns,
             columns_signature=result.columns_signature,
-            kept_columns=[column.name for column in result.columns],
+            kept_columns=result.kept_columns,
         ), 200
 
     @app.post("/download")

@@ -8,7 +8,7 @@
       <input type="checkbox" name="keep_columns" value="{{ name }}"
              {% if name in kept_columns %}checked{% endif %}
              class="h-4 w-4 rounded border-slate-300">
-      {{ name }}
+      <span>{{ name | show_spaces }}</span>
     </label>
     {% endfor %}
   </div>
@@ -25,7 +25,7 @@
   Showing the first {{ preview.rows | length }}.
 </p>
 
-{% if report.columns_removed or options.trim_whitespace or options.remove_empty_rows or options.remove_duplicates %}
+{% if report.columns_removed or report.names_changed or options.trim_whitespace or options.remove_empty_rows or options.remove_duplicates %}
 <ul class="mt-3 space-y-1 rounded-md bg-emerald-50 p-4 text-sm text-emerald-900">
   <li>Started with {{ report.rows_before }} rows.</li>
   {% if report.columns_removed %}
@@ -40,6 +40,9 @@
   {% if options.remove_duplicates %}
   <li>Removed {{ report.duplicates_removed }} duplicate row{{ "" if report.duplicates_removed == 1 else "s" }}.</li>
   {% endif %}
+  {% if report.names_changed %}
+  <li>Renamed {{ report.names_changed }} column{{ "" if report.names_changed == 1 else "s" }}.</li>
+  {% endif %}
 </ul>
 {% endif %}
 
@@ -49,7 +52,7 @@
       <tr>
         {% for column in preview.columns %}
         <th class="px-3 py-2 font-semibold">
-          {{ column.name }}
+          {{ column.name | show_spaces }}
           <div class="text-xs font-normal text-slate-500">{{ column.type }}</div>
           <div class="text-xs font-normal {{ 'text-amber-700' if column.empty else 'text-slate-500' }}">
             {{ column.empty }} empty · {{ column.distinct }} unique
