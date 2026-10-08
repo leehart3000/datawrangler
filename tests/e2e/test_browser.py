@@ -19,7 +19,7 @@ def test_buttons_are_disabled_until_a_file_is_chosen(
     page: Page, live_server: str, messy_csv: Path
 ) -> None:
     page.goto(live_server)
-    preview = page.get_by_role("button", name="Preview")
+    preview = page.get_by_role("button", name="Refresh preview")
     download = page.get_by_role("button", name="Download cleaned CSV")
     hint = page.get_by_text("Choose a file to get started.")
 
@@ -34,14 +34,17 @@ def test_buttons_are_disabled_until_a_file_is_chosen(
     expect(hint).to_be_hidden()
 
 
-def test_preview_appears_on_the_same_page(
+def test_preview_updates_automatically(
     page: Page, live_server: str, messy_csv: Path
 ) -> None:
     page.goto(live_server)
-    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
-    page.get_by_label("Remove duplicate rows").check()
-    page.get_by_role("button", name="Preview").click()
 
+    # Choosing a file shows the preview straight away, without clicking anything.
+    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
+    expect(page.get_by_text("5 rows, 2 columns.")).to_be_visible()
+
+    # Ticking a box updates it.
+    page.get_by_label("Remove duplicate rows").check()
     expect(page.get_by_text("Removed 1 duplicate row.")).to_be_visible()
     expect(page.get_by_text("4 rows, 2 columns.")).to_be_visible()
 
