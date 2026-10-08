@@ -25,5 +25,9 @@ build-backend = "uv_build"
 dev = [
     "mypy>=2.4.0",
     "pytest>=9.1.1",
+    "pytest-playwright>=0.9.0",
     "ruff>=0.16.10",
 ]
+
+[tool.pytest.ini_options]
+markers = ["e2e: tests that drive a real browser (Playwright)"]
