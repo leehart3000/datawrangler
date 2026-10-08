@@ -30,6 +30,9 @@
         <th class="px-3 py-2 font-semibold">
           {{ column.name }}
           <div class="text-xs font-normal text-slate-500">{{ column.type }}</div>
+          <div class="text-xs font-normal {{ 'text-amber-700' if column.empty else 'text-slate-500' }}">
+            {{ column.empty }} empty · {{ column.distinct }} unique
+          </div>
         </th>
         {% endfor %}
       </tr>

@@ -21,6 +21,8 @@ class CleaningOptions(BaseModel):
 class Column:
     name: str
     type: str
+    empty: int = 0
+    distinct: int = 0
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,23 @@ def _quote(name: str) -> str:
 def _count(relation: duckdb.DuckDBPyRelation) -> int:
     result = relation.aggregate("count(*)").fetchone()
     return int(result[0]) if result else 0
+
+
+def _column_stats(
+    relation: duckdb.DuckDBPyRelation, row_count: int
+) -> list[tuple[int, int]]:
+    """Return (empty cells, distinct values) for each column, in one pass over the data."""
+    quoted = [_quote(name) for name in relation.columns]
+    expressions = ", ".join(f"count({q}), count(DISTINCT {q})" for q in quoted)
+    result = relation.aggregate(expressions).fetchone()
+    if result is None:
+        return [(0, 0) for _ in quoted]
+    filled_counts = result[0::2]
+    distinct_counts = result[1::2]
+    return [
+        (row_count - int(filled), int(distinct))
+        for filled, distinct in zip(filled_counts, distinct_counts, strict=True)
+    ]
 
 
 def _apply_cleaning(
@@ -95,8 +114,12 @@ def clean_csv(
         names = relation.columns
         rows = relation.limit(limit).fetchall()
         row_count = _count(relation)
+        stats = _column_stats(relation, row_count)
 
-    columns = [Column(name, type_) for name, type_ in zip(names, types, strict=True)]
+    columns = [
+        Column(name, type_, empty, distinct)
+        for name, type_, (empty, distinct) in zip(names, types, stats, strict=True)
+    ]
     return Preview(columns=columns, rows=rows, row_count=row_count), report
 
 

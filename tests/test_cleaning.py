@@ -45,3 +45,16 @@ def test_preview_page_reports_removed_duplicates() -> None:
     response = client.post("/preview", data=data, content_type="multipart/form-data")
     assert response.status_code == 200
     assert b"Removed 1 duplicate row." in response.data
+
+
+def test_column_summary_counts_empty_and_unique(tmp_path: Path) -> None:
+    preview, _ = clean_csv(_write(tmp_path, MESSY_CSV), CleaningOptions())
+    name_column = preview.columns[0]
+    assert name_column.empty == 1
+    assert name_column.distinct == 3  # " Ada ", "Alan" and "Alan "
+
+
+def test_trimming_merges_values_in_the_summary(tmp_path: Path) -> None:
+    options = CleaningOptions(trim_whitespace=True)
+    preview, _ = clean_csv(_write(tmp_path, MESSY_CSV), options)
+    assert preview.columns[0].distinct == 2  # "Ada" and "Alan"
