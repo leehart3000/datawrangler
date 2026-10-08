@@ -4,6 +4,7 @@ from pathlib import Path
 
 import duckdb
 from flask import Flask, Response, render_template, request
+from markupsafe import Markup, escape
 from pydantic import ValidationError
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import RequestEntityTooLarge
@@ -14,6 +15,21 @@ from datawrangler.wrangling import CleaningOptions, clean_csv, write_clean_csv
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 CSV_ERROR = "Sorry, we couldn't read that file as a CSV."
+EXTRA_SPACE = Markup(
+    '<span class="rounded-sm bg-amber-100 text-amber-700" title="Extra space">·</span>'
+)
+
+
+def _show_edge_spaces(value: object) -> Markup:
+    """Show spaces at the start or end of a value as highlighted dots."""
+    text = str(value)
+    if not text.strip():
+        return EXTRA_SPACE * len(text)
+    start = len(text) - len(text.lstrip())
+    end = len(text.rstrip())
+    return (
+        EXTRA_SPACE * start + escape(text[start:end]) + EXTRA_SPACE * (len(text) - end)
+    )
 
 
 class UploadError(Exception):
@@ -54,6 +70,7 @@ def create_app() -> Flask:
     # Lets templates add a fingerprint to the CSS address, so browsers fetch new versions.
     css_path = Path(app.root_path) / "static" / "css" / "app.css"
     app.jinja_env.globals["css_version"] = _file_fingerprint(css_path)
+    app.jinja_env.filters["show_spaces"] = _show_edge_spaces
 
     # Trust the X-Forwarded-Host and X-Forwarded-Proto labels from the Cloudflare Worker.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_host=1, x_proto=1)  # type: ignore[method-assign]

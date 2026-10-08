@@ -42,7 +42,7 @@
       <tr>
         {% for value in row %}
         <td class="whitespace-nowrap px-3 py-2">
-          {% if value is none %}<span class="text-slate-400">empty</span>{% else %}{{ value }}{% endif %}
+          {% if value is none %}<span class="text-slate-400">empty</span>{% else %}{{ value | show_spaces }}{% endif %}
         </td>
         {% endfor %}
       </tr>
@@ -50,4 +50,8 @@
     </tbody>
   </table>
 </div>
+<p class="mt-2 text-xs text-slate-500">
+  Extra spaces at the start or end of a value are shown as
+  <span class="rounded-sm bg-amber-100 text-amber-700">·</span>.
+</p>
 {% endif %}
