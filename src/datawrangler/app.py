@@ -15,12 +15,17 @@ from werkzeug.utils import secure_filename
 from datawrangler.wrangling import (
     CleaningOptions,
     NoColumnsKeptError,
+    UnreadableFileError,
     clean_csv,
     write_clean_csv,
 )
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
-CSV_ERROR = "Sorry, we couldn't read that file as a CSV."
+CSV_ERROR = (
+    "Sorry, we couldn't read that file as a table without risking changes to your data. "
+    "It needs a header row first, with every row having the same number of "
+    "comma-separated values."
+)
 EXTRA_SPACE = Markup(
     '<span class="rounded-sm bg-amber-100 text-amber-700" title="Extra space">·</span>'
 )
@@ -113,7 +118,7 @@ def create_app() -> Flask:
                     columns_signature=exc.signature,
                     kept_columns=[],
                 ), 400
-            except duckdb.Error as exc:
+            except (UnreadableFileError, duckdb.Error) as exc:
                 raise UploadError(CSV_ERROR) from exc
 
         return render_template(
@@ -138,7 +143,7 @@ def create_app() -> Flask:
                 write_clean_csv(source, options, output)
             except NoColumnsKeptError as exc:
                 raise UploadError(str(exc)) from exc
-            except duckdb.Error as exc:
+            except (UnreadableFileError, duckdb.Error) as exc:
                 raise UploadError(CSV_ERROR) from exc
             data = output.read_bytes()
 

@@ -22,7 +22,7 @@ def _write(tmp_path: Path) -> Path:
 
 
 def test_keeps_only_the_chosen_columns(tmp_path: Path) -> None:
-    options = CleaningOptions(keep_columns=["name", "age"], columns_for=SIGNATURE)
+    options = CleaningOptions(keep_columns=[0, 2], columns_for=SIGNATURE)
     preview, report = clean_csv(_write(tmp_path), options)
     assert [column.name for column in preview.columns] == ["name", "age"]
     assert preview.all_columns == ["name", "city", "age"]
@@ -31,7 +31,7 @@ def test_keeps_only_the_chosen_columns(tmp_path: Path) -> None:
 
 def test_duplicates_are_judged_on_the_kept_columns(tmp_path: Path) -> None:
     options = CleaningOptions(
-        keep_columns=["name", "age"], columns_for=SIGNATURE, remove_duplicates=True
+        keep_columns=[0, 2], columns_for=SIGNATURE, remove_duplicates=True
     )
     preview, report = clean_csv(_write(tmp_path), options)
     assert preview.rows == [("Ada", "36")]
@@ -39,7 +39,7 @@ def test_duplicates_are_judged_on_the_kept_columns(tmp_path: Path) -> None:
 
 
 def test_choices_for_a_different_file_are_ignored(tmp_path: Path) -> None:
-    options = CleaningOptions(keep_columns=["name"], columns_for="another-file")
+    options = CleaningOptions(keep_columns=[0], columns_for="another-file")
     preview, _ = clean_csv(_write(tmp_path), options)
     assert len(preview.columns) == 3
 
@@ -55,7 +55,7 @@ def test_download_includes_only_the_chosen_columns() -> None:
     data = {
         "file": (io.BytesIO(CSV.encode()), "people.csv"),
         "columns_for": SIGNATURE,
-        "keep_columns": ["name", "age"],
+        "keep_columns": ["0", "2"],
     }
     response = client.post("/download", data=data, content_type="multipart/form-data")
     assert response.status_code == 200

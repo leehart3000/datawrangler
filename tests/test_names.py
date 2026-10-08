@@ -48,10 +48,10 @@ def test_renaming_keeps_column_choices_on_original_names(tmp_path: Path) -> None
     original = preview_csv(path).all_columns
     options = CleaningOptions(
         snake_case_column_names=True,
-        keep_columns=["First Name", "Last  Name"],
+        keep_columns=[0, 1],
         columns_for=columns_signature(original),
     )
     preview, report = clean_csv(path, options)
     assert [column.name for column in preview.columns] == ["first_name", "last_name"]
-    assert preview.kept_columns == ["First Name", "Last  Name"]
+    assert preview.kept_columns == [0, 1]
     assert report.names_changed == 2

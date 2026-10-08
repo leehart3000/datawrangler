@@ -5,8 +5,8 @@
   <div class="mt-1 flex flex-wrap gap-x-5 gap-y-2">
     {% for name in all_columns %}
     <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="keep_columns" value="{{ name }}"
-             {% if name in kept_columns %}checked{% endif %}
+      <input type="checkbox" name="keep_columns" value="{{ loop.index0 }}"
+             {% if loop.index0 in kept_columns %}checked{% endif %}
              class="h-4 w-4 rounded border-slate-300">
       <span>{{ name | show_spaces }}</span>
     </label>
