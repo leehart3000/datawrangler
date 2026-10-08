@@ -16,6 +16,8 @@ from typing import Any
 import duckdb
 from pydantic import BaseModel
 
+from datawrangler.fileformat import detect_format, format_csv
+
 # A temporary column used to remember each row's original position.
 ROW_ID = "__datawrangler_row"
 
@@ -270,20 +272,14 @@ def clean_csv(
 
 
 def write_clean_csv(path: Path, options: CleaningOptions, output: Path) -> None:
-    """Apply the chosen cleaning steps and save the result as a CSV file.
-
-    The header row is written by Python with the real (or tidied) names, then
-    DuckDB writes the data rows underneath.
-    """
-    body = output.with_name(output.name + ".rows")
+    """Apply the chosen cleaning steps and save the result, in the original file's format."""
     with duckdb.connect() as con:
         cleaned = _apply_cleaning(con, path, options)
-        cleaned.relation.write_csv(str(body), header=False)
+        rows = cleaned.relation.fetchall()
 
-    with output.open("w", newline="", encoding="utf-8") as file:
-        csv.writer(file, lineterminator="\n").writerow(cleaned.names)
-        file.write(body.read_text(encoding="utf-8"))
-    body.unlink()
+    file_format = detect_format(path.read_bytes().decode("utf-8"))
+    text = format_csv(cleaned.names, rows, file_format)
+    output.write_text(text, encoding="utf-8", newline="")
 
 
 def preview_csv(path: Path, limit: int = 20) -> Preview:

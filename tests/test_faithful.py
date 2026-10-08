@@ -1,7 +1,8 @@
-"""With no cleaning options, a download must have exactly the same values as the upload.
+"""With no cleaning options, a download must be identical to the upload.
 
-For well-formed files, the values must match. For files that aren't a clean table,
-refusing with a message is also acceptable. Silently changing anything is not.
+For well-formed files with a consistent style, the download must match byte for byte.
+For files that aren't a clean table, refusing with a message is also acceptable.
+Silently changing anything is not.
 """
 
 import csv
@@ -24,6 +25,10 @@ WELL_FORMED = {
     "everything is text": "name,city\nAda,London\nAlan,Leeds\n",
     "everything is numbers": "1,2\n3,4\n",
     "Windows line endings": "name,city\r\nAda,London\r\n",
+    "byte order mark": "\ufeffname,city\nAda,London\n",
+    "no line break at the end": "name,city\nAda,London",
+    "every value quoted": '"name","city"\n"Ada","London"\n',
+    "Windows line endings with a line break inside a value": 'name,note\r\nAda,"one\ntwo"\r\n',
 }
 
 # Not a clean table: the download must match, or the app must refuse the file.
@@ -47,7 +52,7 @@ def _download(text: str):  # type: ignore[no-untyped-def]
 def test_well_formed_files_come_back_unchanged(text: str) -> None:
     response = _download(text)
     assert response.status_code == 200
-    assert _rows(response.data.decode()) == _rows(text)
+    assert response.data == text.encode()
 
 
 @pytest.mark.parametrize("text", IRREGULAR.values(), ids=IRREGULAR.keys())
