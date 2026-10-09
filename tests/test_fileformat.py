@@ -1,4 +1,14 @@
-from datawrangler.fileformat import FileFormat, detect_format, format_csv
+import pytest
+
+from datawrangler.fileformat import (
+    ChoiceNeededError,
+    FileFormat,
+    OutputChoices,
+    detect_format,
+    effective_choices,
+    format_csv,
+    to_file_format,
+)
 
 
 def test_plain_file() -> None:
@@ -38,3 +48,38 @@ def test_format_csv_reproduces_the_details() -> None:
         byte_order_mark=True, line_ending="\r\n", final_line_break=False, quoting="all"
     )
     assert format_csv(["a"], [["1"]], file_format) == '\ufeff"a"\r\n"1"'
+
+
+def test_settings_default_to_the_detected_format() -> None:
+    detected = detect_format("a\r\n1\r\n")
+    choices = effective_choices(detected, OutputChoices(), "this-file")
+    assert choices.line_ending == "crlf"
+    assert choices.format_for == "this-file"
+
+
+def test_settings_for_another_file_are_ignored() -> None:
+    detected = detect_format("a\r\n1\r\n")
+    submitted = OutputChoices(format_for="another-file", line_ending="lf")
+    assert effective_choices(detected, submitted, "this-file").line_ending == "crlf"
+
+
+def test_mixed_line_endings_need_a_choice() -> None:
+    detected = detect_format("a\r\n1\n")
+    choices = effective_choices(detected, OutputChoices(), "this-file")
+    with pytest.raises(ChoiceNeededError):
+        to_file_format(choices)
+
+
+def test_settings_from_the_page_are_used() -> None:
+    submitted = OutputChoices(
+        format_for="this-file",
+        line_ending="lf",
+        quoting="all",
+        byte_order_mark=True,
+        final_line_break=False,
+    )
+    detected = detect_format("a\r\n1\r\n")
+    file_format = to_file_format(effective_choices(detected, submitted, "this-file"))
+    assert file_format == FileFormat(
+        byte_order_mark=True, line_ending="\n", final_line_break=False, quoting="all"
+    )

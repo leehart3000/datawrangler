@@ -8,58 +8,65 @@
       hx-post="{{ url_for('preview') }}" hx-trigger="change delay:500ms"
       hx-target="#result" hx-sync="this:replace" hx-indicator="#working"
       x-data="{ hasFile: false }" x-init="hasFile = $refs.file.files.length > 0"
-      class="mt-8">
-  <div class="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-    <label for="file" class="block font-medium">Choose a CSV file (up to 10 MB)</label>
+      class="mt-8 space-y-6">
+
+  <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold">1. Your file</h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Your file is processed and then deleted straight away. Nothing is stored.
+    </p>
+    <label for="file" class="mt-4 block font-medium">Choose a CSV file (up to 10 MB)</label>
     <input id="file" name="file" type="file" accept=".csv,text/csv" required
            x-ref="file" @change="hasFile = $event.target.files.length > 0"
-           class="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
-
-    <fieldset class="space-y-2">
-      <legend class="font-medium">Cleaning steps</legend>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="trim_whitespace" class="h-4 w-4 rounded border-slate-300">
-        Trim extra spaces (and treat blank cells as empty)
-      </label>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="remove_empty_rows" class="h-4 w-4 rounded border-slate-300">
-        Remove empty rows
-      </label>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="remove_duplicates" class="h-4 w-4 rounded border-slate-300">
-        Remove duplicate rows
-      </label>
-    </fieldset>
-
-    <fieldset class="space-y-2">
-      <legend class="font-medium">Column names</legend>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="tidy_column_names" class="h-4 w-4 rounded border-slate-300">
-        Tidy column names (trim and collapse extra spaces)
-      </label>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="snake_case_column_names" class="h-4 w-4 rounded border-slate-300">
-        Make column names lowercase_with_underscores
-      </label>
-    </fieldset>
-
-    <div class="flex flex-wrap items-center gap-3">
+           class="mt-2 block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
+    <div class="mt-4 flex flex-wrap items-center gap-3">
       <button type="submit" :disabled="!hasFile"
               hx-post="{{ url_for('preview') }}" hx-target="#result" hx-encoding="multipart/form-data"
               hx-validate="true" hx-sync="closest form:replace" hx-indicator="#working"
-              class="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+              class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
         Refresh preview
-      </button>
-      <button type="submit" formaction="{{ url_for('download') }}" :disabled="!hasFile"
-              class="rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">
-        Download cleaned CSV
       </button>
       <span x-show="!hasFile" class="text-sm text-slate-500">Choose a file to get started.</span>
       <span id="working" class="htmx-indicator text-sm text-slate-500">Updating preview…</span>
     </div>
-  </div>
+  </section>
 
-  <div id="result" class="mt-8">
+  <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-lg font-semibold">2. Clean</h2>
+    <div class="mt-4 grid gap-6 sm:grid-cols-3">
+      <fieldset class="space-y-2">
+        <legend class="text-sm font-medium text-slate-700">Text</legend>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="trim_whitespace" class="mt-0.5 h-4 w-4 rounded border-slate-300">
+          <span>Trim extra spaces (and treat blank cells as empty)</span>
+        </label>
+      </fieldset>
+      <fieldset class="space-y-2">
+        <legend class="text-sm font-medium text-slate-700">Rows</legend>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="remove_empty_rows" class="mt-0.5 h-4 w-4 rounded border-slate-300">
+          <span>Remove empty rows</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="remove_duplicates" class="mt-0.5 h-4 w-4 rounded border-slate-300">
+          <span>Remove duplicate rows</span>
+        </label>
+      </fieldset>
+      <fieldset class="space-y-2">
+        <legend class="text-sm font-medium text-slate-700">Column names</legend>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="tidy_column_names" class="mt-0.5 h-4 w-4 rounded border-slate-300">
+          <span>Tidy column names (trim and collapse extra spaces)</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="snake_case_column_names" class="mt-0.5 h-4 w-4 rounded border-slate-300">
+          <span>Make column names lowercase_with_underscores</span>
+        </label>
+      </fieldset>
+    </div>
+  </section>
+
+  <div id="result" class="space-y-6">
     {% include "_result.html" %}
   </div>
 </form>

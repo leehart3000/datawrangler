@@ -15,7 +15,7 @@ def messy_csv(tmp_path: Path) -> Path:
     return path
 
 
-def test_buttons_are_disabled_until_a_file_is_chosen(
+def test_buttons_respond_to_choosing_a_file(
     page: Page, live_server: str, messy_csv: Path
 ) -> None:
     page.goto(live_server)
@@ -24,7 +24,7 @@ def test_buttons_are_disabled_until_a_file_is_chosen(
     hint = page.get_by_text("Choose a file to get started.")
 
     expect(preview).to_be_disabled()
-    expect(download).to_be_disabled()
+    expect(download).to_have_count(0)
     expect(hint).to_be_visible()
 
     page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
@@ -58,6 +58,7 @@ def test_download_saves_the_cleaned_file(
     page.get_by_label("Remove empty rows").check()
     page.get_by_label("Remove duplicate rows").check()
 
+    expect(page.get_by_text("Removed 2 duplicate rows.")).to_be_visible()
     with page.expect_download() as download_info:
         page.get_by_role("button", name="Download cleaned CSV").click()
     download = download_info.value

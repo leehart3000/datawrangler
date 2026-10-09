@@ -16,7 +16,7 @@ from typing import Any
 import duckdb
 from pydantic import BaseModel
 
-from datawrangler.fileformat import detect_format, format_csv
+from datawrangler.fileformat import FileFormat, format_csv
 
 # A temporary column used to remember each row's original position.
 ROW_ID = "__datawrangler_row"
@@ -271,13 +271,14 @@ def clean_csv(
     return preview, cleaned.report
 
 
-def write_clean_csv(path: Path, options: CleaningOptions, output: Path) -> None:
-    """Apply the chosen cleaning steps and save the result, in the original file's format."""
+def write_clean_csv(
+    path: Path, options: CleaningOptions, output: Path, file_format: FileFormat
+) -> None:
+    """Apply the chosen cleaning steps and save the result in the given format."""
     with duckdb.connect() as con:
         cleaned = _apply_cleaning(con, path, options)
         rows = cleaned.relation.fetchall()
 
-    file_format = detect_format(path.read_bytes().decode("utf-8"))
     text = format_csv(cleaned.names, rows, file_format)
     output.write_text(text, encoding="utf-8", newline="")
 

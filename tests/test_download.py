@@ -1,6 +1,7 @@
 import io
 
 from datawrangler.app import create_app
+from datawrangler.fileformat import file_fingerprint
 
 
 def test_download_returns_cleaned_csv() -> None:
@@ -23,3 +24,26 @@ def test_download_without_file_shows_error() -> None:
     response = client.post("/download", data={}, content_type="multipart/form-data")
     assert response.status_code == 400
     assert b"Please choose a CSV file." in response.data
+
+
+def test_download_can_change_the_line_endings() -> None:
+    text = "a,b\n1,2\n"
+    data = {
+        "file": (io.BytesIO(text.encode()), "data.csv"),
+        "format_for": file_fingerprint(text.encode()),
+        "line_ending": "crlf",
+        "quoting": "minimal",
+        "final_line_break": "on",
+    }
+    client = create_app().test_client()
+    response = client.post("/download", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert response.data == b"a,b\r\n1,2\r\n"
+
+
+def test_mixed_line_endings_are_refused_with_a_clear_message() -> None:
+    data = {"file": (io.BytesIO(b"a\r\n1\n"), "data.csv")}
+    client = create_app().test_client()
+    response = client.post("/download", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert b"line endings" in response.data

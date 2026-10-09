@@ -6,16 +6,35 @@ when the user explicitly chooses to.
 """
 
 import csv
+import hashlib
 import io
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from pydantic import BaseModel
+
 BYTE_ORDER_MARK = "\ufeff"
 NEEDS_QUOTES = frozenset({",", '"', "\r", "\n"})
 
 Quoting = Literal["none", "minimal", "all", "mixed"]
+LineEndingCode = Literal["lf", "crlf", "cr"]
+LINE_ENDING_CODES: dict[str, LineEndingCode] = {"\n": "lf", "\r\n": "crlf", "\r": "cr"}
+LINE_ENDINGS: dict[LineEndingCode, str] = {
+    code: end for end, code in LINE_ENDING_CODES.items()
+}
+LINE_ENDING_LABELS: dict[LineEndingCode, str] = {
+    "lf": "Unix and Mac (LF)",
+    "crlf": "Windows (CRLF)",
+    "cr": "Old Mac (CR)",
+}
+QUOTING_DESCRIPTIONS: dict[str, str] = {
+    "none": "has no quoted values",
+    "minimal": "quotes values only where needed",
+    "all": "quotes every value",
+    "mixed": "quotes some values but not others",
+}
 
 
 @dataclass(frozen=True)
@@ -25,6 +44,10 @@ class FileFormat:
     mixed_line_endings: bool = False
     final_line_break: bool = True
     quoting: Quoting = "none"
+
+    @property
+    def line_ending_code(self) -> LineEndingCode:
+        return LINE_ENDING_CODES[self.line_ending]
 
 
 def _scan_quoted(text: str) -> tuple[Counter[str], Quoting]:
@@ -139,3 +162,67 @@ def format_csv(
     if not file_format.final_line_break and text.endswith(file_format.line_ending):
         text = text[: -len(file_format.line_ending)]
     return (BYTE_ORDER_MARK if file_format.byte_order_mark else "") + text
+
+
+class OutputChoices(BaseModel):
+    """The download's format details, as set on the page."""
+
+    format_for: str | None = None
+    line_ending: LineEndingCode | None = None
+    quoting: Literal["minimal", "all"] | None = None
+    byte_order_mark: bool = False
+    final_line_break: bool = False
+
+
+class ChoiceNeededError(Exception):
+    """The original file is mixed in some way, so the user must choose."""
+
+
+def file_fingerprint(data: bytes) -> str:
+    """A short fingerprint of a file's whole contents, to tell when a different file is chosen."""
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def effective_choices(
+    detected: FileFormat, submitted: OutputChoices, fingerprint: str
+) -> OutputChoices:
+    """Use the settings from the page if they were made for this file; otherwise match the original.
+
+    Where the original is mixed, the setting is left empty, so the user has to choose.
+    """
+    if submitted.format_for == fingerprint:
+        return submitted
+    quoting: Literal["minimal", "all"] | None
+    if detected.quoting == "mixed":
+        quoting = None
+    elif detected.quoting == "all":
+        quoting = "all"
+    else:
+        quoting = "minimal"
+    return OutputChoices(
+        format_for=fingerprint,
+        line_ending=None if detected.mixed_line_endings else detected.line_ending_code,
+        quoting=quoting,
+        byte_order_mark=detected.byte_order_mark,
+        final_line_break=detected.final_line_break,
+    )
+
+
+def to_file_format(choices: OutputChoices) -> FileFormat:
+    """Turn the settings into the format to write, checking every choice has been made."""
+    if choices.line_ending is None:
+        raise ChoiceNeededError(
+            "Your file mixes different line endings. "
+            "Please choose which to use in the download."
+        )
+    if choices.quoting is None:
+        raise ChoiceNeededError(
+            "Your file quotes some values but not others. "
+            "Please choose how to quote values in the download."
+        )
+    return FileFormat(
+        byte_order_mark=choices.byte_order_mark,
+        line_ending=LINE_ENDINGS[choices.line_ending],
+        final_line_break=choices.final_line_break,
+        quoting=choices.quoting,
+    )
