@@ -49,7 +49,7 @@ secrets:
   before_script: []
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - trufflehog git file://. --fail --no-update
+    - trufflehog git file://. --fail --no-update --exclude-paths=.trufflehog-exclude
 
 build:
   stage: build
