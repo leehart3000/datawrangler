@@ -26,12 +26,14 @@ def test_buttons_respond_to_choosing_a_file(
     expect(preview).to_be_disabled()
     expect(download).to_have_count(0)
     expect(hint).to_be_visible()
+    expect(page.get_by_label("Remove empty rows")).to_be_disabled()
 
     page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
 
     expect(preview).to_be_enabled()
     expect(download).to_be_enabled()
     expect(hint).to_be_hidden()
+    expect(page.get_by_label("Remove empty rows")).to_be_enabled()
 
 
 def test_preview_updates_automatically(
@@ -80,3 +82,13 @@ def test_unticking_a_column_removes_it(
         page.get_by_role("button", name="Download cleaned CSV").click()
     lines = Path(download_info.value.path()).read_text().splitlines()
     assert lines[0] == "name"
+
+
+def test_file_errors_appear_by_the_file_chooser(
+    page: Page, live_server: str, tmp_path: Path
+) -> None:
+    mixed = tmp_path / "mixed.csv"
+    mixed.write_bytes(b"name,city\r\nAda,London\nAlan,Leeds\n")
+    page.goto(live_server)
+    page.get_by_label("Choose a CSV file").set_input_files(mixed)
+    expect(page.locator("#file-error")).to_contain_text("mixes different line endings")

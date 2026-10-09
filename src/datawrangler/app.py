@@ -80,6 +80,12 @@ def _result_template() -> str:
     return "index.html"
 
 
+def _render_result(status: int, **context: object) -> tuple[str, int]:
+    """Render the result. For htmx, this also includes the columns section, sent out of band."""
+    template = _result_template()
+    return render_template(template, oob=template == "_result.html", **context), status
+
+
 def _form_data() -> dict[str, object]:
     """The form's values (ignoring empty ones), with the ticked columns gathered into a list."""
     data: dict[str, object] = {
@@ -147,18 +153,19 @@ def create_app() -> Flask:
             try:
                 result, report = clean_csv(path, options)
             except NoColumnsKeptError as exc:
-                return render_template(
-                    _result_template(),
-                    error=str(exc),
+                return _render_result(
+                    400,
+                    columns_error=str(exc),
                     all_columns=exc.all_columns,
                     columns_signature=exc.signature,
                     kept_columns=[],
-                ), 400
+                    options=options,
+                )
             except (UnreadableFileError, duckdb.Error) as exc:
                 raise UploadError(CSV_ERROR) from exc
 
-        return render_template(
-            _result_template(),
+        return _render_result(
+            200,
             preview=result,
             report=report,
             options=options,
@@ -168,7 +175,7 @@ def create_app() -> Flask:
             kept_columns=result.kept_columns,
             detected=detected,
             choices=choices,
-        ), 200
+        )
 
     @app.post("/download")
     def download() -> Response:
@@ -196,11 +203,10 @@ def create_app() -> Flask:
 
     @app.errorhandler(UploadError)
     def upload_error(error: UploadError) -> tuple[str, int]:
-        return render_template(_result_template(), error=str(error)), 400
+        return _render_result(400, error=str(error))
 
     @app.errorhandler(RequestEntityTooLarge)
     def too_large(error: RequestEntityTooLarge) -> tuple[str, int]:
-        message = "That file is too big. The limit is 10 MB."
-        return render_template(_result_template(), error=message), 413
+        return _render_result(413, error="That file is too big. The limit is 10 MB.")
 
     return app
