@@ -23,6 +23,7 @@ from datawrangler.fileformat import (
     file_fingerprint,
     to_file_format,
 )
+from datawrangler.monitoring import init_sentry
 from datawrangler.wrangling import (
     CleaningOptions,
     NoColumnsKeptError,
@@ -125,6 +126,7 @@ def _detect(path: Path, submitted: OutputChoices) -> tuple[FileFormat, OutputCho
 
 
 def create_app() -> Flask:
+    init_sentry()
     app = Flask(__name__)
     app.config["TRUSTED_HOSTS"] = ["datawrangler.org", "localhost", "127.0.0.1"]
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES

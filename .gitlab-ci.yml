@@ -87,4 +87,4 @@ deploy:
     - echo "$GCP_ID_TOKEN" > /tmp/gcp_id_token.jwt
     - gcloud iam workload-identity-pools create-cred-config "$WIF_PROVIDER" --service-account="$DEPLOYER_SA" --credential-source-file=/tmp/gcp_id_token.jwt --output-file=/tmp/gcp_credentials.json
     - gcloud auth login --cred-file=/tmp/gcp_credentials.json --quiet
-    - gcloud run deploy datawrangler --image="$IMAGE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --service-account="$RUNTIME_SA" --max-instances=2 --memory=512Mi --quiet
+    - gcloud run deploy datawrangler --image="$IMAGE" --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --service-account="$RUNTIME_SA" --max-instances=2 --memory=512Mi --quiet --update-env-vars="APP_VERSION=$CI_COMMIT_SHORT_SHA"
