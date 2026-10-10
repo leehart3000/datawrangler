@@ -17,7 +17,7 @@
   </div>
   {% if preview %}
   <p class="mt-1 text-sm text-slate-600">
-    <span class="font-medium text-slate-900">{{ filename }}</span>:
+    <span class="font-medium text-slate-900 wrap-anywhere">{{ filename }}</span>:
     {{ preview.row_count }} row{{ "" if preview.row_count == 1 else "s" }},
     {{ preview.columns | length }} column{{ "" if preview.columns | length == 1 else "s" }}.
     Showing the first {{ preview.rows | length }}.
