@@ -20,7 +20,7 @@ def test_buttons_respond_to_choosing_a_file(
 ) -> None:
     page.goto(live_server)
     preview = page.get_by_role("button", name="Refresh preview")
-    download = page.get_by_role("button", name="Download cleaned CSV")
+    download = page.get_by_role("button", name="Download cleaned file")
     hint = page.get_by_text("Choose a file to get started.")
 
     expect(preview).to_be_disabled()
@@ -62,7 +62,7 @@ def test_download_saves_the_cleaned_file(
 
     expect(page.get_by_text("Removed 2 duplicate rows.")).to_be_visible()
     with page.expect_download() as download_info:
-        page.get_by_role("button", name="Download cleaned CSV").click()
+        page.get_by_role("button", name="Download cleaned file").click()
     download = download_info.value
 
     assert download.suggested_filename == "messy-cleaned.csv"
@@ -79,7 +79,7 @@ def test_unticking_a_column_removes_it(
     expect(page.get_by_text("Removed 1 column.")).to_be_visible()
 
     with page.expect_download() as download_info:
-        page.get_by_role("button", name="Download cleaned CSV").click()
+        page.get_by_role("button", name="Download cleaned file").click()
     lines = Path(download_info.value.path()).read_text().splitlines()
     assert lines[0] == "name"
 

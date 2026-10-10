@@ -2,6 +2,9 @@
 <div id="columns" hx-swap-oob="true">
   {% include "_columns.html" %}
 </div>
+<div id="file-details" hx-swap-oob="true">
+  {% include "_file_details.html" %}
+</div>
 <div id="file-error" hx-swap-oob="true">
   {% include "_file_error.html" %}
 </div>
@@ -105,6 +108,15 @@
 
   <div class="mt-4 grid gap-4 sm:grid-cols-2">
     <label class="block text-sm">
+      <span class="font-medium">Separator in the download</span>
+      <select name="output_separator"
+              class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm">
+        {% for code, label in SEPARATOR_LABELS.items() %}
+        <option value="{{ code }}" {% if code == choices.output_separator %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block text-sm">
       <span class="font-medium">Line endings</span>
       <select name="line_ending" required
               class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm">
@@ -129,28 +141,48 @@
         <span>Around every value</span>
       </label>
     </fieldset>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="byte_order_mark" class="h-4 w-4 rounded border-slate-300"
-             {% if choices.byte_order_mark %}checked{% endif %}>
-      <span>Start with a byte order mark</span>
+    <div class="space-y-2">
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="byte_order_mark" class="h-4 w-4 rounded border-slate-300"
+               {% if choices.byte_order_mark %}checked{% endif %}>
+        <span>Start with a byte order mark</span>
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="final_line_break" class="h-4 w-4 rounded border-slate-300"
+               {% if choices.final_line_break %}checked{% endif %}>
+        <span>End with a line break</span>
+      </label>
+      {% if detected.trailing_blank_lines %}
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="keep_trailing_blank_lines" class="h-4 w-4 rounded border-slate-300"
+               {% if choices.keep_trailing_blank_lines %}checked{% endif %}>
+        <span>Keep the {{ detected.trailing_blank_lines }} empty line{{ "" if detected.trailing_blank_lines == 1 else "s" }} at the end</span>
+      </label>
+      {% endif %}
+    </div>
+    <label class="block text-sm sm:col-span-2">
+      <span class="font-medium">File name</span>
+      <span class="mt-1 flex items-center gap-1">
+        <input type="text" name="download_name" value="{{ choices.download_name }}"
+               class="block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm sm:w-80">
+        <select name="download_extension" aria-label="File extension"
+                class="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm">
+          <option value="auto" {% if choices.download_extension == "auto" %}selected{% endif %}>
+            {{ download_suffix }} (automatic)
+          </option>
+          {% for extension in [".csv", ".tsv", ".txt"] %}
+          <option value="{{ extension }}" {% if choices.download_extension == extension %}selected{% endif %}>
+            {{ extension }}
+          </option>
+          {% endfor %}
+        </select>
+      </span>
     </label>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="final_line_break" class="h-4 w-4 rounded border-slate-300"
-             {% if choices.final_line_break %}checked{% endif %}>
-      <span>End with a line break</span>
-    </label>
-    {% if detected.trailing_blank_lines %}
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="keep_trailing_blank_lines" class="h-4 w-4 rounded border-slate-300"
-             {% if choices.keep_trailing_blank_lines %}checked{% endif %}>
-      <span>Keep the {{ detected.trailing_blank_lines }} empty line{{ "" if detected.trailing_blank_lines == 1 else "s" }} at the end</span>
-    </label>
-    {% endif %}
   </div>
 
   <button type="submit" formaction="{{ url_for('download') }}"
           class="mt-5 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500">
-    Download cleaned CSV
+    Download cleaned file
   </button>
   {% else %}
   <p class="mt-1 text-sm text-slate-500">

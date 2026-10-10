@@ -53,6 +53,12 @@ SEPARATOR_DESCRIPTIONS: dict[SeparatorCode, str] = {
     "tab": "tabs",
     "pipe": "pipes (|)",
 }
+SEPARATOR_LABELS: dict[SeparatorCode, str] = {
+    "comma": "Commas (,)",
+    "semicolon": "Semicolons (;)",
+    "tab": "Tabs",
+    "pipe": "Pipes (|)",
+}
 
 
 @dataclass(frozen=True)
@@ -258,15 +264,25 @@ def format_csv(
     return (BYTE_ORDER_MARK if file_format.byte_order_mark else "") + text
 
 
+class InputChoices(BaseModel):
+    """How to read the uploaded file, as set on the page."""
+
+    separator_for: str | None = None
+    separator: SeparatorCode | None = None
+
+
 class OutputChoices(BaseModel):
     """The download's format details, as set on the page."""
 
     format_for: str | None = None
+    output_separator: SeparatorCode | None = None
     line_ending: LineEndingCode | None = None
     quoting: Literal["minimal", "all"] | None = None
     byte_order_mark: bool = False
     final_line_break: bool = False
     keep_trailing_blank_lines: bool = False
+    download_name: str | None = None
+    download_extension: Literal["auto", ".csv", ".tsv", ".txt"] = "auto"
 
 
 class ChoiceNeededError(Exception):
@@ -279,13 +295,19 @@ def file_fingerprint(data: bytes) -> str:
 
 
 def effective_choices(
-    detected: FileFormat, submitted: OutputChoices, fingerprint: str
+    detected: FileFormat,
+    submitted: OutputChoices,
+    fingerprint: str,
+    default_name: str = "data-cleaned",
 ) -> OutputChoices:
-    """Use the settings from the page if they were made for this file; otherwise match the original.
+    """Use the settings from the page if they were made for this file, read this way.
 
-    Where the original is mixed, the setting is left empty, so the user has to choose.
+    Otherwise, match the original. The settings remember the separator the file was
+    read with, so correcting that resets them. Where the original is mixed, the
+    setting is left empty, so the user has to choose.
     """
-    if submitted.format_for == fingerprint:
+    key = f"{fingerprint}:{detected.separator_code}"
+    if submitted.format_for == key:
         return submitted
     quoting: Literal["minimal", "all"] | None
     if detected.quoting == "mixed":
@@ -295,12 +317,14 @@ def effective_choices(
     else:
         quoting = "minimal"
     return OutputChoices(
-        format_for=fingerprint,
+        format_for=key,
+        output_separator=detected.separator_code,
         line_ending=None if detected.mixed_line_endings else detected.line_ending_code,
         quoting=quoting,
         byte_order_mark=detected.byte_order_mark,
         final_line_break=detected.final_line_break,
         keep_trailing_blank_lines=detected.trailing_blank_lines > 0,
+        download_name=default_name,
     )
 
 
@@ -316,8 +340,13 @@ def to_file_format(choices: OutputChoices, detected: FileFormat) -> FileFormat:
             "Your file quotes some values but not others. "
             "Please choose how to quote values in the download."
         )
+    delimiter = (
+        SEPARATORS[choices.output_separator]
+        if choices.output_separator
+        else detected.delimiter
+    )
     return FileFormat(
-        delimiter=detected.delimiter,
+        delimiter=delimiter,
         byte_order_mark=choices.byte_order_mark,
         line_ending=LINE_ENDINGS[choices.line_ending],
         final_line_break=choices.final_line_break,
@@ -326,3 +355,20 @@ def to_file_format(choices: OutputChoices, detected: FileFormat) -> FileFormat:
             detected.trailing_blank_lines if choices.keep_trailing_blank_lines else 0
         ),
     )
+
+
+def download_extension(
+    original_suffix: str, input_delimiter: str, output_delimiter: str
+) -> str:
+    """Choose the download's extension.
+
+    Keep the original's, unless the separator has been changed to tabs or commas,
+    in which case use the standard extension for those.
+    """
+    if output_delimiter == input_delimiter and original_suffix:
+        return original_suffix
+    if output_delimiter == "\t":
+        return ".tsv"
+    if output_delimiter == ",":
+        return ".csv"
+    return original_suffix or ".csv"

@@ -30,7 +30,7 @@ def test_download_can_change_the_line_endings() -> None:
     text = "a,b\n1,2\n"
     data = {
         "file": (io.BytesIO(text.encode()), "data.csv"),
-        "format_for": file_fingerprint(text.encode()),
+        "format_for": file_fingerprint(text.encode()) + ":comma",
         "line_ending": "crlf",
         "quoting": "minimal",
         "final_line_break": "on",
@@ -55,3 +55,70 @@ def test_empty_lines_between_rows_are_refused() -> None:
     response = client.post("/download", data=data, content_type="multipart/form-data")
     assert response.status_code == 400
     assert b"empty lines between rows" in response.data
+
+
+def test_download_can_change_the_separator_and_name() -> None:
+    text = "a,b\n1,2\n"
+    data = {
+        "file": (io.BytesIO(text.encode()), "data.csv"),
+        "format_for": file_fingerprint(text.encode()) + ":comma",
+        "output_separator": "tab",
+        "line_ending": "lf",
+        "quoting": "minimal",
+        "final_line_break": "on",
+        "download_name": "my results",
+    }
+    client = create_app().test_client()
+    response = client.post("/download", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert response.data == b"a\tb\n1\t2\n"
+    assert 'filename="my_results.tsv"' in response.headers["Content-Disposition"]
+
+
+def test_the_separator_can_be_corrected() -> None:
+    # Commas and semicolons both appear once per line; detection picks commas.
+    text = "a,b;c\n1,2;3\n"
+    data = {
+        "file": (io.BytesIO(text.encode()), "data.csv"),
+        "separator_for": file_fingerprint(text.encode()),
+        "separator": "semicolon",
+    }
+    client = create_app().test_client()
+    response = client.post(
+        "/preview",
+        data=data,
+        content_type="multipart/form-data",
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert b"(detected)" in response.data
+    assert b"a,b" in response.data  # Read with semicolons, "a,b" is one column name.
+
+
+def test_a_name_suggesting_another_separator_is_pointed_out() -> None:
+    data = {"file": (io.BytesIO(b"a,b\n1,2\n"), "data.tsv")}
+    client = create_app().test_client()
+    response = client.post(
+        "/preview",
+        data=data,
+        content_type="multipart/form-data",
+        headers={"HX-Request": "true"},
+    )
+    assert b"usually means it&#39;s separated by tabs" in response.data
+
+
+def test_the_extension_can_be_chosen() -> None:
+    text = "a,b\n1,2\n"
+    data = {
+        "file": (io.BytesIO(text.encode()), "messy.tsv"),
+        "format_for": file_fingerprint(text.encode()) + ":comma",
+        "line_ending": "lf",
+        "quoting": "minimal",
+        "final_line_break": "on",
+        "download_name": "messy-cleaned",
+        "download_extension": ".csv",
+    }
+    client = create_app().test_client()
+    response = client.post("/download", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert 'filename="messy-cleaned.csv"' in response.headers["Content-Disposition"]

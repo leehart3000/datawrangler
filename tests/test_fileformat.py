@@ -6,6 +6,7 @@ from datawrangler.fileformat import (
     OutputChoices,
     detect_format,
     detect_separator,
+    download_extension,
     effective_choices,
     format_csv,
     to_file_format,
@@ -55,7 +56,7 @@ def test_settings_default_to_the_detected_format() -> None:
     detected = detect_format("a\r\n1\r\n")
     choices = effective_choices(detected, OutputChoices(), "this-file")
     assert choices.line_ending == "crlf"
-    assert choices.format_for == "this-file"
+    assert choices.format_for == "this-file:comma"
 
 
 def test_settings_for_another_file_are_ignored() -> None:
@@ -73,7 +74,7 @@ def test_mixed_line_endings_need_a_choice() -> None:
 
 def test_settings_from_the_page_are_used() -> None:
     submitted = OutputChoices(
-        format_for="this-file",
+        format_for="this-file:comma",
         line_ending="lf",
         quoting="all",
         byte_order_mark=True,
@@ -132,3 +133,15 @@ def test_separator_ignores_commas_inside_values() -> None:
 def test_separator_falls_back_to_the_header() -> None:
     # The line break inside quotes upsets the line-by-line count, so the header decides.
     assert detect_separator('a;b\n1;"x\ny"\n') == ";"
+
+
+def test_download_extension_rules() -> None:
+    assert (
+        download_extension(".tsv", ",", ",") == ".tsv"
+    )  # Unchanged: keep the original.
+    assert download_extension(".csv", ",", "\t") == ".tsv"  # Changed to tabs.
+    assert download_extension(".tsv", "\t", ",") == ".csv"  # Changed to commas.
+    assert (
+        download_extension(".txt", ",", ";") == ".txt"
+    )  # No standard: keep the original.
+    assert download_extension("", ",", ",") == ".csv"  # No original extension.

@@ -1,0 +1,17 @@
+{% if separator_for %}
+<input type="hidden" name="separator_for" value="{{ separator_for }}">
+<label class="mt-4 block text-sm">
+  <span class="font-medium">Values in this file are separated by</span>
+  <select name="separator"
+          class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm sm:w-64">
+    {% for code, label in SEPARATOR_LABELS.items() %}
+    <option value="{{ code }}" {% if code == separator_code %}selected{% endif %}>
+      {{ label }}{% if code == detected_separator_code %} (detected){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+</label>
+{% if extension_note %}
+<p class="mt-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900">{{ extension_note }}</p>
+{% endif %}
+{% endif %}

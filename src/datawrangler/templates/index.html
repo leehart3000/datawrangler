@@ -28,6 +28,9 @@
       </button>
       <span x-show="!hasFile" class="text-sm text-slate-500">Choose a file to get started.</span>
     </div>
+    <div id="file-details">
+      {% include "_file_details.html" %}
+    </div>
     <div id="file-error">
       {% include "_file_error.html" %}
     </div>

@@ -1,6 +1,7 @@
 import hashlib
 import re
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
@@ -15,12 +16,17 @@ from werkzeug.utils import secure_filename
 from datawrangler.fileformat import (
     LINE_ENDING_LABELS,
     QUOTING_DESCRIPTIONS,
+    SEPARATOR_CODES,
     SEPARATOR_DESCRIPTIONS,
+    SEPARATOR_LABELS,
+    SEPARATORS,
     ChoiceNeededError,
     FileFormat,
+    InputChoices,
     OutputChoices,
     detect_format,
     detect_separator,
+    download_extension,
     effective_choices,
     file_fingerprint,
     to_file_format,
@@ -89,7 +95,7 @@ def _result_template() -> str:
 
 
 def _render_result(status: int, **context: object) -> tuple[str, int]:
-    """Render the result. For htmx, this also includes the columns section, sent out of band."""
+    """Render the result. For htmx, this also includes the pieces sent out of band."""
     template = _result_template()
     return render_template(template, oob=template == "_result.html", **context), status
 
@@ -105,33 +111,87 @@ def _form_data() -> dict[str, object]:
     return data
 
 
-def _get_request() -> tuple[FileStorage, CleaningOptions, OutputChoices]:
-    """Read the uploaded file, the cleaning options and the download settings from the form."""
+def _get_request() -> tuple[FileStorage, CleaningOptions, InputChoices, OutputChoices]:
+    """Read the uploaded file and all the settings from the form."""
     upload = request.files.get("file")
     if upload is None or not upload.filename:
         raise UploadError("Please choose a file.")
     form = _form_data()
     try:
         options = CleaningOptions.model_validate(form)
+        reading = InputChoices.model_validate(form)
         choices = OutputChoices.model_validate(form)
     except ValidationError as exc:
         raise UploadError("Sorry, those options weren't valid.") from exc
-    return upload, options, choices
+    return upload, options, reading, choices
 
 
-def _detect(path: Path, submitted: OutputChoices) -> tuple[FileFormat, OutputChoices]:
-    """Detect the uploaded file's format, and work out which download settings apply."""
+def _extension_note(filename: str, separator: str) -> str | None:
+    """Point out when a file's name suggests a different separator from the one being used."""
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".tsv" and separator != "\t":
+        expected = "tabs"
+    elif suffix == ".csv" and separator not in (",", ";"):
+        expected = "commas"
+    else:
+        return None
+    used = SEPARATOR_DESCRIPTIONS[SEPARATOR_CODES[separator]]
+    return (
+        f"Your file's name ends in {suffix}, which usually means it's separated by "
+        f"{expected}, but it's being read as separated by {used}. "
+        "If that's wrong, choose the right separator here."
+    )
+
+
+@dataclass(frozen=True)
+class _FileInfo:
+    """What was learned about the uploaded file, before cleaning it."""
+
+    detected: FileFormat
+    choices: OutputChoices
+    detected_separator: str
+    filename: str
+    fingerprint: str
+
+    @property
+    def problem(self) -> str | None:
+        """A reason the file can't be processed faithfully, if there is one."""
+        if self.detected.mixed_line_endings:
+            return MIXED_LINE_ENDINGS_ERROR
+        if self.detected.blank_lines_inside:
+            return EMPTY_LINES_ERROR
+        return None
+
+    def separator_context(self) -> dict[str, object]:
+        """What the Upload section needs to show the separator setting."""
+        separator = self.detected.delimiter
+        return {
+            "separator_for": self.fingerprint,
+            "separator_code": SEPARATOR_CODES[separator],
+            "detected_separator_code": SEPARATOR_CODES[self.detected_separator],
+            "extension_note": _extension_note(self.filename, separator),
+        }
+
+
+def _inspect(
+    path: Path, filename: str, reading: InputChoices, submitted: OutputChoices
+) -> _FileInfo:
+    """Detect the file's separator and format, and work out which settings apply."""
     data = path.read_bytes()
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise UploadError(CSV_ERROR) from exc
-    detected = detect_format(text, detect_separator(text))
-    if detected.mixed_line_endings:
-        raise UploadError(MIXED_LINE_ENDINGS_ERROR)
-    if detected.blank_lines_inside:
-        raise UploadError(EMPTY_LINES_ERROR)
-    return detected, effective_choices(detected, submitted, file_fingerprint(data))
+    fingerprint = file_fingerprint(data)
+    detected_separator = detect_separator(text)
+    if reading.separator_for == fingerprint and reading.separator:
+        separator = SEPARATORS[reading.separator]
+    else:
+        separator = detected_separator
+    detected = detect_format(text, separator)
+    default_name = f"{Path(secure_filename(filename)).stem or 'data'}-cleaned"
+    choices = effective_choices(detected, submitted, fingerprint, default_name)
+    return _FileInfo(detected, choices, detected_separator, filename, fingerprint)
 
 
 def create_app() -> Flask:
@@ -146,6 +206,7 @@ def create_app() -> Flask:
     app.jinja_env.globals["LINE_ENDING_LABELS"] = LINE_ENDING_LABELS
     app.jinja_env.globals["QUOTING_DESCRIPTIONS"] = QUOTING_DESCRIPTIONS
     app.jinja_env.globals["SEPARATOR_DESCRIPTIONS"] = SEPARATOR_DESCRIPTIONS
+    app.jinja_env.globals["SEPARATOR_LABELS"] = SEPARATOR_LABELS
     app.jinja_env.filters["show_spaces"] = _show_extra_spaces
 
     # Trust the X-Forwarded-Host and X-Forwarded-Proto labels from the Cloudflare Worker.
@@ -158,13 +219,19 @@ def create_app() -> Flask:
 
     @app.post("/preview")
     def preview() -> tuple[str, int]:
-        upload, options, submitted = _get_request()
+        upload, options, reading, submitted = _get_request()
+        filename = upload.filename or ""
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "upload.csv"
             upload.save(path)
-            detected, choices = _detect(path, submitted)
+            info = _inspect(path, filename, reading, submitted)
+            context = info.separator_context()
+            if info.problem:
+                return _render_result(400, error=info.problem, **context)
             try:
-                result, report = clean_csv(path, options, delimiter=detected.delimiter)
+                result, report = clean_csv(
+                    path, options, delimiter=info.detected.delimiter
+                )
             except NoColumnsKeptError as exc:
                 return _render_result(
                     400,
@@ -173,38 +240,52 @@ def create_app() -> Flask:
                     columns_signature=exc.signature,
                     kept_columns=[],
                     options=options,
+                    **context,
                 )
-            except (UnreadableFileError, duckdb.Error) as exc:
-                raise UploadError(CSV_ERROR) from exc
+            except UnreadableFileError, duckdb.Error:
+                return _render_result(400, error=CSV_ERROR, **context)
 
+        output_separator = SEPARATORS[
+            info.choices.output_separator or info.detected.separator_code
+        ]
         return _render_result(
             200,
             preview=result,
             report=report,
             options=options,
-            filename=upload.filename,
+            filename=filename,
             all_columns=result.all_columns,
             columns_signature=result.columns_signature,
             kept_columns=result.kept_columns,
-            detected=detected,
-            choices=choices,
+            detected=info.detected,
+            choices=info.choices,
+            download_suffix=download_extension(
+                Path(secure_filename(filename)).suffix,
+                info.detected.delimiter,
+                output_separator,
+            ),
+            **context,
         )
 
     @app.post("/download")
     def download() -> Response:
-        upload, options, submitted = _get_request()
+        upload, options, reading, submitted = _get_request()
+        filename = upload.filename or ""
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "upload.csv"
             output = Path(tmp) / "cleaned.csv"
             upload.save(source)
-            detected, choices = _detect(source, submitted)
+            info = _inspect(source, filename, reading, submitted)
+            if info.problem:
+                raise UploadError(info.problem)
             try:
+                file_format = to_file_format(info.choices, info.detected)
                 write_clean_csv(
                     source,
                     options,
                     output,
-                    to_file_format(choices, detected),
-                    delimiter=detected.delimiter,
+                    file_format,
+                    delimiter=info.detected.delimiter,
                 )
             except ChoiceNeededError as exc:
                 raise UploadError(str(exc)) from exc
@@ -214,12 +295,16 @@ def create_app() -> Flask:
                 raise UploadError(CSV_ERROR) from exc
             data = output.read_bytes()
 
-        original = Path(secure_filename(upload.filename or ""))
-        tab = detected.delimiter == "\t"
-        suffix = original.suffix or (".tsv" if tab else ".csv")
-        disposition = (
-            f'attachment; filename="{original.stem or "data"}-cleaned{suffix}"'
-        )
+        suffix: str = info.choices.download_extension
+        if suffix == "auto":
+            suffix = download_extension(
+                Path(secure_filename(filename)).suffix,
+                info.detected.delimiter,
+                file_format.delimiter,
+            )
+        stem = secure_filename(info.choices.download_name or "") or "data-cleaned"
+        disposition = f'attachment; filename="{stem}{suffix}"'
+        tab = file_format.delimiter == "\t"
         mimetype = "text/tab-separated-values" if tab else "text/csv"
         return Response(
             data, mimetype=mimetype, headers={"Content-Disposition": disposition}
