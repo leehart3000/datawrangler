@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy · DataWrangler{% endblock %}
+
+{% block content %}
+<p class="text-sm"><a href="{{ url_for('index') }}" class="text-blue-700 hover:underline">← Back to DataWrangler</a></p>
+
+<h1 class="mt-4 text-3xl font-bold tracking-tight">Privacy</h1>
+<p class="mt-2 text-sm text-slate-500">Last updated 10 October 2026</p>
+
+<div class="mt-8 space-y-8 text-slate-700">
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">In short</h2>
+    <p class="mt-2">
+      Your file is processed and then deleted straight away. It is never stored, shared, or
+      used for anything else. DataWrangler doesn't use cookies, analytics or advertising.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Who runs DataWrangler</h2>
+    <p class="mt-2">
+      DataWrangler is run by Lee Hart. For any question about privacy, email
+      <a href="mailto:privacy@datawrangler.org" class="text-blue-700 hover:underline">privacy@datawrangler.org</a>.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">What happens to your file</h2>
+    <ul class="mt-2 list-disc space-y-2 pl-5">
+      <li>Your file is sent over an encrypted connection, to servers run by Google Cloud in London.</li>
+      <li>
+        It is saved briefly in a temporary folder while it's read and cleaned, and that folder is
+        deleted as soon as your preview or download is ready. This usually takes under a second.
+      </li>
+      <li>
+        Each time the preview updates, or you download, your browser sends the file again.
+        DataWrangler doesn't keep a copy between these.
+      </li>
+      <li>Your file's contents are never logged, copied, shared or used for anything else.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Error reports</h2>
+    <p class="mt-2">
+      If something goes wrong, a report is sent to
+      <a href="https://sentry.io" class="text-blue-700 hover:underline">Sentry</a>, which stores it in
+      the European Union, so the problem can be found and fixed. A report includes the type of error,
+      where in DataWrangler's code it happened, which page was being used, and which version of
+      DataWrangler was running.
+    </p>
+    <p class="mt-2">
+      Reports never include your file, any of its contents, the error's message (which can quote data),
+      your IP address, or other personal details. They are kept for up to 30 days.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Technical logs</h2>
+    <p class="mt-2">
+      Like most websites, DataWrangler's hosting keeps short-term logs of requests, such as the time,
+      the page asked for, the type of browser, and how long it took. These may include your IP address.
+      They are used only to keep the site running and secure, and Google Cloud deletes them after 30 days.
+    </p>
+    <p class="mt-2">
+      All traffic passes through <a href="https://www.cloudflare.com" class="text-blue-700 hover:underline">Cloudflare</a>,
+      which protects the site from attacks and abuse (for example, by limiting how quickly files can
+      be sent). To do this, Cloudflare processes your IP address.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Cookies and tracking</h2>
+    <p class="mt-2">
+      DataWrangler doesn't set cookies, and doesn't use analytics, advertising or tracking of any kind.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Why this information is used</h2>
+    <p class="mt-2">
+      Error reports and technical logs are used because DataWrangler has a legitimate interest in
+      keeping the site working, secure and free of abuse. They are kept only as long as needed for that.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Your rights</h2>
+    <p class="mt-2">
+      You can ask what information about you is held, and ask for it to be corrected or deleted, by
+      emailing <a href="mailto:privacy@datawrangler.org" class="text-blue-700 hover:underline">privacy@datawrangler.org</a>.
+      Since DataWrangler doesn't keep your files and doesn't know who you are, there's usually very
+      little to find.
+    </p>
+    <p class="mt-2">
+      If you're unhappy with how your information is handled, you can complain to the UK's
+      Information Commissioner's Office at
+      <a href="https://ico.org.uk/make-a-complaint/" class="text-blue-700 hover:underline">ico.org.uk</a>.
+    </p>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-slate-900">Changes</h2>
+    <p class="mt-2">
+      If DataWrangler starts handling information differently (for example, if accounts or saved files
+      are added), this page will be updated first, and the date at the top will change.
+    </p>
+  </section>
+</div>
+{% endblock %}

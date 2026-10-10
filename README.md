@@ -33,6 +33,7 @@ files on every change.
 ## Privacy
 
 Uploaded files are processed and then deleted straight away. Nothing is stored.
+See the [privacy page](https://datawrangler.org/privacy) for details.
 
 ## Built with
 

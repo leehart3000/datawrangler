@@ -14,6 +14,7 @@
     <h2 class="text-lg font-semibold">1. Upload</h2>
     <p class="mt-1 text-sm text-slate-600">
       Your file is processed and then deleted straight away. Nothing is stored.
+      <a href="{{ url_for('privacy') }}" class="text-blue-700 hover:underline">More about privacy</a>.
     </p>
     <label for="file" class="mt-4 block font-medium">Choose a file (CSV, TSV or similar, up to 10 MB)</label>
     <input id="file" name="file" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" required

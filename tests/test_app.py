@@ -19,3 +19,9 @@ def test_unknown_host_is_rejected() -> None:
     client = create_app().test_client()
     response = client.get("/", headers={"X-Forwarded-Host": "evil.example"})
     assert response.status_code == 400
+
+
+def test_privacy_page() -> None:
+    response = create_app().test_client().get("/privacy")
+    assert response.status_code == 200
+    assert b"never stored" in response.data

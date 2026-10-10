@@ -217,6 +217,10 @@ def create_app() -> Flask:
     def index() -> str:
         return render_template("index.html")
 
+    @app.get("/privacy")
+    def privacy() -> str:
+        return render_template("privacy.html")
+
     @app.post("/preview")
     def preview() -> tuple[str, int]:
         upload, options, reading, submitted = _get_request()
