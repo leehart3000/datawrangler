@@ -36,6 +36,11 @@ test:
 e2e:
   stage: check
   script:
+    # Build the stylesheet with the same Tailwind version as the Dockerfile.
+    - TAILWIND_PATH=$(grep -oE 'tailwindcss/releases/download/v[0-9.]+/tailwindcss-linux-x64' Dockerfile | head -n 1)
+    - python -c "import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], 'tailwindcss')" "https://github.com/$TAILWIND_PATH"
+    - chmod +x tailwindcss
+    - ./tailwindcss -i src/datawrangler/static/src/input.css -o src/datawrangler/static/css/app.css --minify
     - uv run playwright install --with-deps chromium
     - uv run pytest -m e2e
 
