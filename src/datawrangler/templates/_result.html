@@ -53,7 +53,8 @@
             {{ column.name | show_spaces }}
             <div class="text-xs font-normal text-slate-500">{{ column.type }}</div>
             <div class="text-xs font-normal {{ 'text-amber-700' if column.empty else 'text-slate-500' }}">
-              {{ column.empty }} empty · {{ column.distinct }} unique
+              <span class="whitespace-nowrap">{{ column.empty }} empty</span> ·
+              <span class="whitespace-nowrap">{{ column.distinct }} unique</span>
             </div>
           </th>
           {% endfor %}
