@@ -44,6 +44,10 @@ MIXED_LINE_ENDINGS_ERROR = (
     "We can't read files like that reliably yet, so to avoid changing your data, "
     "we haven't processed it."
 )
+EMPTY_LINES_ERROR = (
+    "Your file has empty lines between rows. We can't tell whether they're meant to be "
+    "rows of empty values or not, so to avoid changing your data, we haven't processed it."
+)
 EXTRA_SPACE = Markup(
     '<span class="rounded-sm bg-amber-100 text-amber-700" title="Extra space">·</span>'
 )
@@ -123,6 +127,8 @@ def _detect(path: Path, submitted: OutputChoices) -> tuple[FileFormat, OutputCho
     detected = detect_format(text)
     if detected.mixed_line_endings:
         raise UploadError(MIXED_LINE_ENDINGS_ERROR)
+    if detected.blank_lines_inside:
+        raise UploadError(EMPTY_LINES_ERROR)
     return detected, effective_choices(detected, submitted, file_fingerprint(data))
 
 
@@ -188,9 +194,11 @@ def create_app() -> Flask:
             source = Path(tmp) / "upload.csv"
             output = Path(tmp) / "cleaned.csv"
             upload.save(source)
-            _, choices = _detect(source, submitted)
+            detected, choices = _detect(source, submitted)
             try:
-                write_clean_csv(source, options, output, to_file_format(choices))
+                write_clean_csv(
+                    source, options, output, to_file_format(choices, detected)
+                )
             except ChoiceNeededError as exc:
                 raise UploadError(str(exc)) from exc
             except NoColumnsKeptError as exc:

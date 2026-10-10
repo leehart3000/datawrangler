@@ -8,6 +8,7 @@ when the user explicitly chooses to.
 import csv
 import hashlib
 import io
+import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 
 BYTE_ORDER_MARK = "\ufeff"
 NEEDS_QUOTES = frozenset({",", '"', "\r", "\n"})
+LINE_BREAK = re.compile(r"\r\n|\n|\r")
 
 Quoting = Literal["none", "minimal", "all", "mixed"]
 LineEndingCode = Literal["lf", "crlf", "cr"]
@@ -44,23 +46,37 @@ class FileFormat:
     mixed_line_endings: bool = False
     final_line_break: bool = True
     quoting: Quoting = "none"
+    trailing_blank_lines: int = 0
+    blank_lines_inside: int = 0
 
     @property
     def line_ending_code(self) -> LineEndingCode:
         return LINE_ENDING_CODES[self.line_ending]
 
 
-def _scan_quoted(text: str) -> tuple[Counter[str], Quoting]:
+def _blank_line_counts(blank: list[bool]) -> tuple[int, int]:
+    """Count the empty lines at the end, and the empty lines anywhere else."""
+    trailing = 0
+    for is_blank in reversed(blank):
+        if not is_blank:
+            break
+        trailing += 1
+    return trailing, sum(blank) - trailing
+
+
+def _scan_quoted(text: str) -> tuple[Counter[str], Quoting, list[bool]]:
     """Walk through a file that contains quotes, field by field.
 
-    Returns the line endings found between rows (ignoring line breaks inside
-    quoted values) and the quoting style.
+    Returns the line endings found between rows, the quoting style, and whether
+    each line is empty. Line breaks inside quoted values are part of the value,
+    so they don't count as line endings or empty lines.
     """
     endings: Counter[str] = Counter()
+    blank: list[bool] = []
     quoted = unquoted = unnecessary = 0
     in_quotes = field_quoted = field_needs_quotes = False
     at_field_start = True
-    position, length = 0, len(text)
+    position, length, line_start = 0, len(text), 0
 
     def finish_field() -> None:
         nonlocal quoted, unquoted, unnecessary, field_quoted, field_needs_quotes
@@ -95,15 +111,18 @@ def _scan_quoted(text: str) -> tuple[Counter[str], Quoting]:
         elif char in "\r\n":
             ending = "\r\n" if text.startswith("\r\n", position) else char
             endings[ending] += 1
+            blank.append(position == line_start)
             finish_field()
             at_field_start = True
             position += len(ending)
+            line_start = position
         else:
             at_field_start = False
             position += 1
 
     if text and not text.endswith(("\r", "\n")):
         finish_field()
+        blank.append(False)
 
     if quoted == 0:
         style: Quoting = "none"
@@ -113,7 +132,7 @@ def _scan_quoted(text: str) -> tuple[Counter[str], Quoting]:
         style = "minimal"
     else:
         style = "mixed"
-    return endings, style
+    return endings, style, blank
 
 
 def detect_format(text: str) -> FileFormat:
@@ -123,7 +142,7 @@ def detect_format(text: str) -> FileFormat:
         text = text[1:]
 
     if '"' in text:
-        endings, quoting = _scan_quoted(text)
+        endings, quoting, blank = _scan_quoted(text)
     else:
         # No quotes, so every line break is between rows, and counting is quick.
         windows = text.count("\r\n")
@@ -135,7 +154,12 @@ def detect_format(text: str) -> FileFormat:
             }
         )
         quoting = "none"
+        lines = LINE_BREAK.split(text)
+        if text.endswith(("\r", "\n")):
+            lines.pop()  # Nothing comes after the final line break.
+        blank = [line == "" for line in lines]
 
+    trailing, inside = _blank_line_counts(blank) if text else (0, 0)
     found = [(ending, count) for ending, count in endings.most_common() if count]
     return FileFormat(
         byte_order_mark=byte_order_mark,
@@ -143,6 +167,8 @@ def detect_format(text: str) -> FileFormat:
         mixed_line_endings=len(found) > 1,
         final_line_break=text.endswith(("\r", "\n")),
         quoting=quoting,
+        trailing_blank_lines=trailing,
+        blank_lines_inside=inside,
     )
 
 
@@ -161,6 +187,8 @@ def format_csv(
     text = output.getvalue()
     if not file_format.final_line_break and text.endswith(file_format.line_ending):
         text = text[: -len(file_format.line_ending)]
+    if file_format.final_line_break and file_format.trailing_blank_lines:
+        text += file_format.line_ending * file_format.trailing_blank_lines
     return (BYTE_ORDER_MARK if file_format.byte_order_mark else "") + text
 
 
@@ -172,6 +200,7 @@ class OutputChoices(BaseModel):
     quoting: Literal["minimal", "all"] | None = None
     byte_order_mark: bool = False
     final_line_break: bool = False
+    keep_trailing_blank_lines: bool = False
 
 
 class ChoiceNeededError(Exception):
@@ -205,10 +234,11 @@ def effective_choices(
         quoting=quoting,
         byte_order_mark=detected.byte_order_mark,
         final_line_break=detected.final_line_break,
+        keep_trailing_blank_lines=detected.trailing_blank_lines > 0,
     )
 
 
-def to_file_format(choices: OutputChoices) -> FileFormat:
+def to_file_format(choices: OutputChoices, detected: FileFormat) -> FileFormat:
     """Turn the settings into the format to write, checking every choice has been made."""
     if choices.line_ending is None:
         raise ChoiceNeededError(
@@ -225,4 +255,7 @@ def to_file_format(choices: OutputChoices) -> FileFormat:
         line_ending=LINE_ENDINGS[choices.line_ending],
         final_line_break=choices.final_line_break,
         quoting=choices.quoting,
+        trailing_blank_lines=(
+            detected.trailing_blank_lines if choices.keep_trailing_blank_lines else 0
+        ),
     )

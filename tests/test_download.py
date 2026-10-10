@@ -47,3 +47,11 @@ def test_mixed_line_endings_are_refused_with_a_clear_message() -> None:
     response = client.post("/download", data=data, content_type="multipart/form-data")
     assert response.status_code == 400
     assert b"line endings" in response.data
+
+
+def test_empty_lines_between_rows_are_refused() -> None:
+    data = {"file": (io.BytesIO(b"a,b\n1,2\n\n3,4\n"), "data.csv")}
+    client = create_app().test_client()
+    response = client.post("/download", data=data, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert b"empty lines between rows" in response.data

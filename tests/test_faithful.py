@@ -29,12 +29,14 @@ WELL_FORMED = {
     "no line break at the end": "name,city\nAda,London",
     "every value quoted": '"name","city"\n"Ada","London"\n',
     "Windows line endings with a line break inside a value": 'name,note\r\nAda,"one\ntwo"\r\n',
+    "empty lines at the end": "name,city\nAda,London\n\n\n",
 }
 
 # Not a clean table: the download must match, or the app must refuse the file.
 IRREGULAR = {
     "title line above the table": "Report generated today\nname,city\nAda,London\n",
     "row with too few values": "a,b\n1\n",
+    "empty line between rows": "name,city\nAda,London\n\nAlan,Leeds\n",
 }
 
 

@@ -87,7 +87,7 @@
     Your file uses
     {% if detected.mixed_line_endings %}mixed{% else %}{{ LINE_ENDING_LABELS[detected.line_ending_code] }}{% endif %}
     line endings, {{ "starts" if detected.byte_order_mark else "doesn't start" }} with a byte order mark,
-    {{ "ends" if detected.final_line_break else "doesn't end" }} with a line break,
+    {{ "ends" if detected.final_line_break else "doesn't end" }} with a line break{% if detected.trailing_blank_lines %} and {{ detected.trailing_blank_lines }} empty line{{ "" if detected.trailing_blank_lines == 1 else "s" }}{% endif %},
     and {{ QUOTING_DESCRIPTIONS[detected.quoting] }}.
     The download keeps all of these unless you change them below.
   </p>
@@ -139,6 +139,13 @@
              {% if choices.final_line_break %}checked{% endif %}>
       <span>End with a line break</span>
     </label>
+    {% if detected.trailing_blank_lines %}
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="keep_trailing_blank_lines" class="h-4 w-4 rounded border-slate-300"
+             {% if choices.keep_trailing_blank_lines %}checked{% endif %}>
+      <span>Keep the {{ detected.trailing_blank_lines }} empty line{{ "" if detected.trailing_blank_lines == 1 else "s" }} at the end</span>
+    </label>
+    {% endif %}
   </div>
 
   <button type="submit" formaction="{{ url_for('download') }}"

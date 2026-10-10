@@ -67,7 +67,7 @@ def test_mixed_line_endings_need_a_choice() -> None:
     detected = detect_format("a\r\n1\n")
     choices = effective_choices(detected, OutputChoices(), "this-file")
     with pytest.raises(ChoiceNeededError):
-        to_file_format(choices)
+        to_file_format(choices, detected)
 
 
 def test_settings_from_the_page_are_used() -> None:
@@ -79,7 +79,29 @@ def test_settings_from_the_page_are_used() -> None:
         final_line_break=False,
     )
     detected = detect_format("a\r\n1\r\n")
-    file_format = to_file_format(effective_choices(detected, submitted, "this-file"))
+    choices = effective_choices(detected, submitted, "this-file")
+    file_format = to_file_format(choices, detected)
     assert file_format == FileFormat(
         byte_order_mark=True, line_ending="\n", final_line_break=False, quoting="all"
     )
+
+
+def test_empty_lines_at_the_end_are_counted() -> None:
+    detected = detect_format("a,b\n1,2\n\n\n")
+    assert detected.trailing_blank_lines == 2
+    assert detected.blank_lines_inside == 0
+
+
+def test_empty_lines_between_rows_are_counted() -> None:
+    assert detect_format("a,b\n\n1,2\n").blank_lines_inside == 1
+
+
+def test_empty_lines_inside_quoted_values_do_not_count() -> None:
+    detected = detect_format('a,b\n1,"x\n\ny"\n')
+    assert detected.blank_lines_inside == 0
+    assert detected.trailing_blank_lines == 0
+
+
+def test_format_csv_adds_the_empty_lines_back() -> None:
+    file_format = FileFormat(trailing_blank_lines=2)
+    assert format_csv(["a"], [["1"]], file_format) == "a\n1\n\n\n"
