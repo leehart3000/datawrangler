@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @source "../../templates";
+@theme {
+  --color-ink: #0f2a33;
+}
 
 [x-cloak] {
   display: none !important;

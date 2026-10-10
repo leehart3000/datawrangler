@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- DataWrangler logo: a solid "D", with a "W" made of table cells inside it -->
+  <path d="M5 4H17A12 12 0 0 1 17 28H5Z" fill="#0F2A33"/>
+  <g fill="#5EEAD4">
+    <rect x="8.75" y="8.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="8.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="8.75" y="11.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="11.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="8.75" y="14.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="14.75" y="14.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="14.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="8.75" y="17.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="14.75" y="17.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="17.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="11.75" y="20.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="17.75" y="20.75" width="2.5" height="2.5" rx="0.35"/>
+  </g>
+</svg>

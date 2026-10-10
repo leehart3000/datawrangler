@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="text-4xl font-bold tracking-tight">DataWrangler</h1>
-<p class="mt-4 text-lg text-slate-600">Clean, check and prepare your data. No coding needed.</p>
+<h1 class="text-3xl font-bold tracking-tight text-ink">Clean, check and prepare your data.</h1>
+<p class="mt-2 text-lg text-slate-600">No coding needed. Your file stays faithful: nothing changes unless you choose it.</p>
 
 <form action="{{ url_for('preview') }}" method="post" enctype="multipart/form-data"
       hx-post="{{ url_for('preview') }}" hx-trigger="change delay:500ms"

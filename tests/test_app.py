@@ -1,12 +1,20 @@
 from datawrangler.app import create_app
 
 
-def test_home_page_shows_title() -> None:
+def test_home_page_shows_header_and_heading() -> None:
     client = create_app().test_client()
     response = client.get("/")
     assert response.status_code == 200
-    assert b"DataWrangler</h1>" in response.data
-    assert b"/static/css/app.css?v=" in response.data
+    assert b">Data<span" in response.data
+    assert b"Clean, check and prepare your data.</h1>" in response.data
+    assert b'rel="icon"' in response.data
+
+
+def test_logo_is_served() -> None:
+    client = create_app().test_client()
+    response = client.get("/static/img/logo.svg")
+    assert response.status_code == 200
+    assert response.mimetype == "image/svg+xml"
 
 
 def test_request_via_cloudflare_is_accepted() -> None:

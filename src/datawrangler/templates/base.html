@@ -5,12 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}DataWrangler{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=css_version) }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
   <meta name="htmx-config" content='{"responseHandling": [{"code": "204", "swap": false}, {"code": "[23]..", "swap": true}, {"code": "4..", "swap": true, "error": false}, {"code": "...", "swap": false, "error": true}], "includeIndicatorStyles": false, "allowEval": false}'>
   <script src="{{ url_for('static', filename='js/htmx-2.0.10.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/alpine-3.17.4.min.js') }}" defer></script>
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased">
-  <main class="mx-auto max-w-3xl px-4 py-12">
+  <header class="mx-auto max-w-3xl px-4 pt-8">
+    <a href="{{ url_for('index') }}" class="inline-flex items-center gap-3">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="40" height="40">
+      <span class="text-2xl font-semibold tracking-tight text-ink">Data<span class="text-teal-700">Wrangler</span></span>
+    </a>
+  </header>
+  <main class="mx-auto max-w-3xl px-4 pt-8 pb-12">
     {% block content %}{% endblock %}
   </main>
   <footer class="mx-auto max-w-3xl px-4 pb-12 text-sm text-slate-500">
