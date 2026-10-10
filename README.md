@@ -77,4 +77,8 @@ files and repeatable cleaning recipes are planned.
 
 ## Licence
 
-No licence has been chosen yet, so all rights are reserved for now.
+DataWrangler is free software, licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later).
+
+In short: you may use, change and share it, but if you run a changed version for other
+people to use over a network, you must offer them its source code under the same licence.
