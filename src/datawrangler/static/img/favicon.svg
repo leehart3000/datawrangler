@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- DataWrangler favicon: same as logo.svg, but switches colours to stay visible on dark browser tabs -->
+  <style>
+    .d { fill: #0F2A33; }
+    .cells { fill: #5EEAD4; }
+    @media (prefers-color-scheme: dark) {
+      .d { fill: #2DD4BF; }
+      .cells { fill: #0F2A33; }
+    }
+  </style>
+  <path class="d" d="M5 4H17A12 12 0 0 1 17 28H5Z"/>
+  <g class="cells">
+    <rect x="8.75" y="8.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="8.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="8.75" y="11.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="11.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="8.75" y="14.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="14.75" y="14.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="14.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="8.75" y="17.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="14.75" y="17.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="20.75" y="17.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="11.75" y="20.75" width="2.5" height="2.5" rx="0.35"/>
+    <rect x="17.75" y="20.75" width="2.5" height="2.5" rx="0.35"/>
+  </g>
+</svg>
