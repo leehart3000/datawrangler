@@ -26,3 +26,7 @@
     accent-color: var(--color-teal-700);
   }
 }
+
+a[target="_blank"]::after {
+  content: " ↗" / " (opens in a new tab)";
+}

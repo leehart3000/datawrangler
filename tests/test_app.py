@@ -1,3 +1,7 @@
+import re
+
+import pytest
+
 from datawrangler.app import create_app
 
 
@@ -42,3 +46,17 @@ def test_privacy_page() -> None:
     response = create_app().test_client().get("/privacy")
     assert response.status_code == 200
     assert b"never stored" in response.data
+
+
+EXTERNAL_LINK = re.compile(rb'<a\b[^>]*href="https?://[^"]*"[^>]*>')
+
+
+@pytest.mark.parametrize("path", ["/", "/privacy"])
+def test_external_links_open_in_new_tab(path: str) -> None:
+    client = create_app().test_client()
+    page = client.get(path).data
+    links = EXTERNAL_LINK.findall(page)
+    assert links
+    for link in links:
+        assert b'target="_blank"' in link
+        assert b'rel="noopener"' in link
