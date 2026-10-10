@@ -28,7 +28,7 @@ def test_preview_without_file_shows_error() -> None:
     client = create_app().test_client()
     response = client.post("/preview", data={}, content_type="multipart/form-data")
     assert response.status_code == 400
-    assert b"Please choose a CSV file." in response.data
+    assert b"Please choose a file." in response.data
 
 
 def test_htmx_preview_returns_only_the_result() -> None:

@@ -1,4 +1,4 @@
-"""Detecting a CSV file's format details, so downloads can reproduce them exactly.
+"""Detecting a delimited file's format details, so downloads can reproduce them exactly.
 
 Format details aren't values, but they're part of the file, so the rule is:
 detect what the original does, reproduce it by default, and only change it
@@ -17,7 +17,6 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 BYTE_ORDER_MARK = "\ufeff"
-NEEDS_QUOTES = frozenset({",", '"', "\r", "\n"})
 LINE_BREAK = re.compile(r"\r\n|\n|\r")
 
 Quoting = Literal["none", "minimal", "all", "mixed"]
@@ -38,9 +37,27 @@ QUOTING_DESCRIPTIONS: dict[str, str] = {
     "mixed": "quotes some values but not others",
 }
 
+SeparatorCode = Literal["comma", "semicolon", "tab", "pipe"]
+SEPARATORS: dict[SeparatorCode, str] = {
+    "comma": ",",
+    "semicolon": ";",
+    "tab": "\t",
+    "pipe": "|",
+}
+SEPARATOR_CODES: dict[str, SeparatorCode] = {
+    sep: code for code, sep in SEPARATORS.items()
+}
+SEPARATOR_DESCRIPTIONS: dict[SeparatorCode, str] = {
+    "comma": "commas",
+    "semicolon": "semicolons",
+    "tab": "tabs",
+    "pipe": "pipes (|)",
+}
+
 
 @dataclass(frozen=True)
 class FileFormat:
+    delimiter: str = ","
     byte_order_mark: bool = False
     line_ending: str = "\n"
     mixed_line_endings: bool = False
@@ -53,6 +70,52 @@ class FileFormat:
     def line_ending_code(self) -> LineEndingCode:
         return LINE_ENDING_CODES[self.line_ending]
 
+    @property
+    def separator_code(self) -> SeparatorCode:
+        return SEPARATOR_CODES[self.delimiter]
+
+
+def _count_outside_quotes(line: str, char: str) -> int:
+    """Count a character in a line, ignoring any inside quoted values."""
+    count, in_quotes = 0, False
+    for current in line:
+        if current == '"':
+            in_quotes = not in_quotes
+        elif current == char and not in_quotes:
+            count += 1
+    return count
+
+
+def detect_separator(text: str, sample_lines: int = 20) -> str:
+    """Guess which separator a file uses.
+
+    In a real table, the separator appears the same number of times on every line.
+    So the first choice is a separator that appears equally (and at least once) on
+    each of the first lines. If none does, use whichever appears most in the header
+    row. If none appears at all, the file has a single column: use a comma.
+    """
+    if text.startswith(BYTE_ORDER_MARK):
+        text = text[1:]
+    lines = [line for line in LINE_BREAK.split(text) if line][:sample_lines]
+    if not lines:
+        return ","
+
+    best, best_count = "", 0
+    for candidate in SEPARATORS.values():
+        counts = {_count_outside_quotes(line, candidate) for line in lines}
+        if len(counts) == 1:
+            count = counts.pop()
+            if count > best_count:
+                best, best_count = candidate, count
+    if best:
+        return best
+
+    header_counts = {
+        sep: _count_outside_quotes(lines[0], sep) for sep in SEPARATORS.values()
+    }
+    most_common = max(header_counts, key=lambda sep: header_counts[sep])
+    return most_common if header_counts[most_common] else ","
+
 
 def _blank_line_counts(blank: list[bool]) -> tuple[int, int]:
     """Count the empty lines at the end, and the empty lines anywhere else."""
@@ -64,13 +127,14 @@ def _blank_line_counts(blank: list[bool]) -> tuple[int, int]:
     return trailing, sum(blank) - trailing
 
 
-def _scan_quoted(text: str) -> tuple[Counter[str], Quoting, list[bool]]:
+def _scan_quoted(text: str, delimiter: str) -> tuple[Counter[str], Quoting, list[bool]]:
     """Walk through a file that contains quotes, field by field.
 
     Returns the line endings found between rows, the quoting style, and whether
     each line is empty. Line breaks inside quoted values are part of the value,
     so they don't count as line endings or empty lines.
     """
+    needs_quotes = frozenset({delimiter, '"', "\r", "\n"})
     endings: Counter[str] = Counter()
     blank: list[bool] = []
     quoted = unquoted = unnecessary = 0
@@ -97,14 +161,14 @@ def _scan_quoted(text: str) -> tuple[Counter[str], Quoting, list[bool]]:
                     position += 2
                     continue
                 in_quotes = False
-            elif char in NEEDS_QUOTES:
+            elif char in needs_quotes:
                 field_needs_quotes = True
             position += 1
         elif at_field_start and char == '"':
             in_quotes = field_quoted = True
             at_field_start = False
             position += 1
-        elif char == ",":
+        elif char == delimiter:
             finish_field()
             at_field_start = True
             position += 1
@@ -135,14 +199,14 @@ def _scan_quoted(text: str) -> tuple[Counter[str], Quoting, list[bool]]:
     return endings, style, blank
 
 
-def detect_format(text: str) -> FileFormat:
+def detect_format(text: str, delimiter: str = ",") -> FileFormat:
     """Detect a file's format details from its full text (decoded as UTF-8, unchanged)."""
     byte_order_mark = text.startswith(BYTE_ORDER_MARK)
     if byte_order_mark:
         text = text[1:]
 
     if '"' in text:
-        endings, quoting, blank = _scan_quoted(text)
+        endings, quoting, blank = _scan_quoted(text, delimiter)
     else:
         # No quotes, so every line break is between rows, and counting is quick.
         windows = text.count("\r\n")
@@ -162,6 +226,7 @@ def detect_format(text: str) -> FileFormat:
     trailing, inside = _blank_line_counts(blank) if text else (0, 0)
     found = [(ending, count) for ending, count in endings.most_common() if count]
     return FileFormat(
+        delimiter=delimiter,
         byte_order_mark=byte_order_mark,
         line_ending=found[0][0] if found else "\n",
         mixed_line_endings=len(found) > 1,
@@ -175,10 +240,11 @@ def detect_format(text: str) -> FileFormat:
 def format_csv(
     header: Sequence[str], rows: Iterable[Sequence[Any]], file_format: FileFormat
 ) -> str:
-    """Write a header and rows as CSV text, reproducing the given format details."""
+    """Write a header and rows as delimited text, reproducing the given format details."""
     output = io.StringIO()
     writer = csv.writer(
         output,
+        delimiter=file_format.delimiter,
         lineterminator=file_format.line_ending,
         quoting=csv.QUOTE_ALL if file_format.quoting == "all" else csv.QUOTE_MINIMAL,
     )
@@ -251,6 +317,7 @@ def to_file_format(choices: OutputChoices, detected: FileFormat) -> FileFormat:
             "Please choose how to quote values in the download."
         )
     return FileFormat(
+        delimiter=detected.delimiter,
         byte_order_mark=choices.byte_order_mark,
         line_ending=LINE_ENDINGS[choices.line_ending],
         final_line_break=choices.final_line_break,

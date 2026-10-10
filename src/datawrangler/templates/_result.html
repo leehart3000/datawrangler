@@ -84,7 +84,7 @@
   {% if preview %}
   <input type="hidden" name="format_for" value="{{ choices.format_for }}">
   <p class="mt-1 text-sm text-slate-600">
-    Your file uses
+    Your file is separated by {{ SEPARATOR_DESCRIPTIONS[detected.separator_code] }}, uses
     {% if detected.mixed_line_endings %}mixed{% else %}{{ LINE_ENDING_LABELS[detected.line_ending_code] }}{% endif %}
     line endings, {{ "starts" if detected.byte_order_mark else "doesn't start" }} with a byte order mark,
     {{ "ends" if detected.final_line_break else "doesn't end" }} with a line break{% if detected.trailing_blank_lines %} and {{ detected.trailing_blank_lines }} empty line{{ "" if detected.trailing_blank_lines == 1 else "s" }}{% endif %},

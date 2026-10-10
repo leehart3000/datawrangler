@@ -15,10 +15,12 @@ from werkzeug.utils import secure_filename
 from datawrangler.fileformat import (
     LINE_ENDING_LABELS,
     QUOTING_DESCRIPTIONS,
+    SEPARATOR_DESCRIPTIONS,
     ChoiceNeededError,
     FileFormat,
     OutputChoices,
     detect_format,
+    detect_separator,
     effective_choices,
     file_fingerprint,
     to_file_format,
@@ -36,8 +38,8 @@ from datawrangler.wrangling import (
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 CSV_ERROR = (
     "Sorry, we couldn't read that file as a table without risking changes to your data. "
-    "It needs a header row first, with every row having the same number of "
-    "comma-separated values."
+    "It needs a header row first, with every row having the same number of values, "
+    "separated by commas, semicolons, tabs or pipes."
 )
 MIXED_LINE_ENDINGS_ERROR = (
     "Your file mixes different line endings (some Windows-style, some Unix or Mac-style). "
@@ -107,7 +109,7 @@ def _get_request() -> tuple[FileStorage, CleaningOptions, OutputChoices]:
     """Read the uploaded file, the cleaning options and the download settings from the form."""
     upload = request.files.get("file")
     if upload is None or not upload.filename:
-        raise UploadError("Please choose a CSV file.")
+        raise UploadError("Please choose a file.")
     form = _form_data()
     try:
         options = CleaningOptions.model_validate(form)
@@ -124,7 +126,7 @@ def _detect(path: Path, submitted: OutputChoices) -> tuple[FileFormat, OutputCho
         text = data.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise UploadError(CSV_ERROR) from exc
-    detected = detect_format(text)
+    detected = detect_format(text, detect_separator(text))
     if detected.mixed_line_endings:
         raise UploadError(MIXED_LINE_ENDINGS_ERROR)
     if detected.blank_lines_inside:
@@ -143,6 +145,7 @@ def create_app() -> Flask:
     app.jinja_env.globals["css_version"] = _file_fingerprint(css_path)
     app.jinja_env.globals["LINE_ENDING_LABELS"] = LINE_ENDING_LABELS
     app.jinja_env.globals["QUOTING_DESCRIPTIONS"] = QUOTING_DESCRIPTIONS
+    app.jinja_env.globals["SEPARATOR_DESCRIPTIONS"] = SEPARATOR_DESCRIPTIONS
     app.jinja_env.filters["show_spaces"] = _show_extra_spaces
 
     # Trust the X-Forwarded-Host and X-Forwarded-Proto labels from the Cloudflare Worker.
@@ -161,7 +164,7 @@ def create_app() -> Flask:
             upload.save(path)
             detected, choices = _detect(path, submitted)
             try:
-                result, report = clean_csv(path, options)
+                result, report = clean_csv(path, options, delimiter=detected.delimiter)
             except NoColumnsKeptError as exc:
                 return _render_result(
                     400,
@@ -197,7 +200,11 @@ def create_app() -> Flask:
             detected, choices = _detect(source, submitted)
             try:
                 write_clean_csv(
-                    source, options, output, to_file_format(choices, detected)
+                    source,
+                    options,
+                    output,
+                    to_file_format(choices, detected),
+                    delimiter=detected.delimiter,
                 )
             except ChoiceNeededError as exc:
                 raise UploadError(str(exc)) from exc
@@ -207,10 +214,15 @@ def create_app() -> Flask:
                 raise UploadError(CSV_ERROR) from exc
             data = output.read_bytes()
 
-        stem = Path(secure_filename(upload.filename or "")).stem or "data"
-        disposition = f'attachment; filename="{stem}-cleaned.csv"'
+        original = Path(secure_filename(upload.filename or ""))
+        tab = detected.delimiter == "\t"
+        suffix = original.suffix or (".tsv" if tab else ".csv")
+        disposition = (
+            f'attachment; filename="{original.stem or "data"}-cleaned{suffix}"'
+        )
+        mimetype = "text/tab-separated-values" if tab else "text/csv"
         return Response(
-            data, mimetype="text/csv", headers={"Content-Disposition": disposition}
+            data, mimetype=mimetype, headers={"Content-Disposition": disposition}
         )
 
     @app.errorhandler(UploadError)

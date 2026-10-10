@@ -5,6 +5,7 @@ from datawrangler.fileformat import (
     FileFormat,
     OutputChoices,
     detect_format,
+    detect_separator,
     effective_choices,
     format_csv,
     to_file_format,
@@ -105,3 +106,29 @@ def test_empty_lines_inside_quoted_values_do_not_count() -> None:
 def test_format_csv_adds_the_empty_lines_back() -> None:
     file_format = FileFormat(trailing_blank_lines=2)
     assert format_csv(["a"], [["1"]], file_format) == "a\n1\n\n\n"
+
+
+def test_separator_commas() -> None:
+    assert detect_separator("a,b,c\n1,2,3\n") == ","
+
+
+def test_separator_semicolons() -> None:
+    text = "Username; Identifier;First name\nbooker12;9012;Rachel\n\n\n"
+    assert detect_separator(text) == ";"
+
+
+def test_separator_tabs() -> None:
+    assert detect_separator("a\tb\n1\t2\n") == "\t"
+
+
+def test_separator_pipes() -> None:
+    assert detect_separator("a|b\n1|2\n") == "|"
+
+
+def test_separator_ignores_commas_inside_values() -> None:
+    assert detect_separator("name;note\nAda;Hello, world\nAlan;Hi\n") == ";"
+
+
+def test_separator_falls_back_to_the_header() -> None:
+    # The line break inside quotes upsets the line-by-line count, so the header decides.
+    assert detect_separator('a;b\n1;"x\ny"\n') == ";"

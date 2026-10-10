@@ -30,6 +30,10 @@ WELL_FORMED = {
     "every value quoted": '"name","city"\n"Ada","London"\n',
     "Windows line endings with a line break inside a value": 'name,note\r\nAda,"one\ntwo"\r\n',
     "empty lines at the end": "name,city\nAda,London\n\n\n",
+    "semicolons": "name;city\nAda;London\n",
+    "tabs": "name\tcity\nAda\tLondon\n",
+    "pipes": "name|city\nAda|London\n",
+    "semicolons with commas inside values": "name;note\nAda;Hello, world\n",
 }
 
 # Not a clean table: the download must match, or the app must refuse the file.

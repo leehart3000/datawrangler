@@ -28,7 +28,7 @@ def test_buttons_respond_to_choosing_a_file(
     expect(hint).to_be_visible()
     expect(page.get_by_label("Remove empty rows")).to_be_disabled()
 
-    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
+    page.get_by_label("Choose a file").set_input_files(messy_csv)
 
     expect(preview).to_be_enabled()
     expect(download).to_be_enabled()
@@ -42,7 +42,7 @@ def test_preview_updates_automatically(
     page.goto(live_server)
 
     # Choosing a file shows the preview straight away, without clicking anything.
-    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
+    page.get_by_label("Choose a file").set_input_files(messy_csv)
     expect(page.get_by_text("5 rows, 2 columns.")).to_be_visible()
 
     # Ticking a box updates it.
@@ -55,7 +55,7 @@ def test_download_saves_the_cleaned_file(
     page: Page, live_server: str, messy_csv: Path
 ) -> None:
     page.goto(live_server)
-    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
+    page.get_by_label("Choose a file").set_input_files(messy_csv)
     page.get_by_label("Trim extra spaces").check()
     page.get_by_label("Remove empty rows").check()
     page.get_by_label("Remove duplicate rows").check()
@@ -74,7 +74,7 @@ def test_unticking_a_column_removes_it(
     page: Page, live_server: str, messy_csv: Path
 ) -> None:
     page.goto(live_server)
-    page.get_by_label("Choose a CSV file").set_input_files(messy_csv)
+    page.get_by_label("Choose a file").set_input_files(messy_csv)
     page.get_by_label("city", exact=True).uncheck()
     expect(page.get_by_text("Removed 1 column.")).to_be_visible()
 
@@ -90,5 +90,5 @@ def test_file_errors_appear_by_the_file_chooser(
     mixed = tmp_path / "mixed.csv"
     mixed.write_bytes(b"name,city\r\nAda,London\nAlan,Leeds\n")
     page.goto(live_server)
-    page.get_by_label("Choose a CSV file").set_input_files(mixed)
+    page.get_by_label("Choose a file").set_input_files(mixed)
     expect(page.locator("#file-error")).to_contain_text("mixes different line endings")

@@ -113,11 +113,11 @@ def tidy_column_names(names: list[str], trim: bool, snake: bool) -> list[str]:
     return tidied
 
 
-def read_header(path: Path) -> list[str]:
+def read_header(path: Path, delimiter: str = ",") -> list[str]:
     """Read the header row exactly as written, using Python's own CSV reader."""
     try:
         with path.open(newline="", encoding="utf-8-sig") as file:
-            header = next(csv.reader(file), None)
+            header = next(csv.reader(file, delimiter=delimiter), None)
     except (UnicodeDecodeError, csv.Error) as exc:
         raise UnreadableFileError from exc
     if not header:
@@ -158,17 +158,22 @@ def _column_stats(
 
 
 def _read_table(
-    con: duckdb.DuckDBPyConnection, path: Path, column_count: int, all_varchar: bool
+    con: duckdb.DuckDBPyConnection,
+    path: Path,
+    column_count: int,
+    all_varchar: bool,
+    delimiter: str,
 ) -> duckdb.DuckDBPyRelation:
-    """Read the CSV with its structure fixed, so DuckDB never has to guess.
+    """Read the file with its structure fixed, so DuckDB never has to guess.
 
-    There is always a header row, nothing is skipped, and the separator is a comma.
+    There is always a header row, nothing is skipped, and the separator is the one given.
     DuckDB uses simple internal names (c0, c1, ...); the real names come from read_header.
     Rows that don't fit (too few or too many values) make DuckDB stop with an error.
     """
     names = ", ".join(_literal(f"c{position}") for position in range(column_count))
     options = (
-        "header = true, skip = 0, delim = ',', quote = '\"', escape = '\"', "
+        f"header = true, skip = 0, delim = {_literal(delimiter)}, "
+        "quote = '\"', escape = '\"', "
         f"names = [{names}], all_varchar = {'true' if all_varchar else 'false'}"
     )
     return con.sql(f"SELECT * FROM read_csv({_literal(str(path))}, {options})")
@@ -189,11 +194,16 @@ def _columns_to_keep(all_names: list[str], options: CleaningOptions) -> list[int
 
 
 def _apply_cleaning(
-    con: duckdb.DuckDBPyConnection, path: Path, options: CleaningOptions
+    con: duckdb.DuckDBPyConnection,
+    path: Path,
+    options: CleaningOptions,
+    delimiter: str,
 ) -> _Cleaned:
-    """Read the CSV as exact text, and apply the chosen cleaning steps in order."""
-    all_names = read_header(path)
-    relation = _read_table(con, path, len(all_names), all_varchar=True)
+    """Read the file as exact text, and apply the chosen cleaning steps in order."""
+    all_names = read_header(path, delimiter)
+    relation = _read_table(
+        con, path, len(all_names), all_varchar=True, delimiter=delimiter
+    )
     internal = relation.columns
     kept = _columns_to_keep(all_names, options)
     quoted = [_quote(internal[position]) for position in kept]
@@ -242,13 +252,15 @@ def _apply_cleaning(
 
 
 def clean_csv(
-    path: Path, options: CleaningOptions, limit: int = 20
+    path: Path, options: CleaningOptions, limit: int = 20, delimiter: str = ","
 ) -> tuple[Preview, CleaningReport]:
     """Apply the chosen cleaning steps and preview the result."""
     with duckdb.connect() as con:
-        cleaned = _apply_cleaning(con, path, options)
+        cleaned = _apply_cleaning(con, path, options, delimiter)
         # DuckDB's guess at each column's type, shown as information only.
-        typed = _read_table(con, path, len(cleaned.all_names), all_varchar=False)
+        typed = _read_table(
+            con, path, len(cleaned.all_names), all_varchar=False, delimiter=delimiter
+        )
         types = [str(type_) for type_ in typed.types]
         rows = cleaned.relation.limit(limit).fetchall()
         row_count = _count(cleaned.relation)
@@ -272,18 +284,26 @@ def clean_csv(
 
 
 def write_clean_csv(
-    path: Path, options: CleaningOptions, output: Path, file_format: FileFormat
+    path: Path,
+    options: CleaningOptions,
+    output: Path,
+    file_format: FileFormat,
+    delimiter: str = ",",
 ) -> None:
-    """Apply the chosen cleaning steps and save the result in the given format."""
+    """Apply the chosen cleaning steps and save the result in the given format.
+
+    `delimiter` is the original file's separator, for reading; `file_format` says
+    how to write the download.
+    """
     with duckdb.connect() as con:
-        cleaned = _apply_cleaning(con, path, options)
+        cleaned = _apply_cleaning(con, path, options, delimiter)
         rows = cleaned.relation.fetchall()
 
     text = format_csv(cleaned.names, rows, file_format)
     output.write_text(text, encoding="utf-8", newline="")
 
 
-def preview_csv(path: Path, limit: int = 20) -> Preview:
-    """Read a CSV file and preview it without any cleaning."""
-    preview, _ = clean_csv(path, CleaningOptions(), limit)
+def preview_csv(path: Path, limit: int = 20, delimiter: str = ",") -> Preview:
+    """Read a file and preview it without any cleaning."""
+    preview, _ = clean_csv(path, CleaningOptions(), limit, delimiter)
     return preview
