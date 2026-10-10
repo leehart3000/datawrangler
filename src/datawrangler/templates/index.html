@@ -14,12 +14,12 @@
     <h2 class="text-lg font-semibold">1. Upload</h2>
     <p class="mt-1 text-sm text-slate-600">
       Your file is processed and then deleted straight away. Nothing is stored.
-      <a href="{{ url_for('privacy') }}" class="text-blue-700 hover:underline">More about privacy</a>.
+      <a href="{{ url_for('privacy') }}" class="text-teal-700 hover:underline">More about privacy</a>.
     </p>
     <label for="file" class="mt-4 block font-medium">Choose a file (CSV, TSV or similar, up to 10 MB)</label>
     <input id="file" name="file" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" required
            x-ref="file" @change="hasFile = $event.target.files.length > 0"
-           class="mt-2 block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
+           class="mt-2 block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-ink file:px-4 file:py-2 file:text-white hover:file:bg-teal-900">
     <div class="mt-4 flex flex-wrap items-center gap-3">
       <button type="submit" :disabled="!hasFile"
               hx-post="{{ url_for('preview') }}" hx-target="#result" hx-encoding="multipart/form-data"

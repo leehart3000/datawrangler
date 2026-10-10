@@ -2,6 +2,7 @@
 @source "../../templates";
 @theme {
   --color-ink: #0f2a33;
+  --color-mist: #f3f7f6;
 }
 
 [x-cloak] {
@@ -17,4 +18,11 @@
 .htmx-request .htmx-indicator {
   opacity: 1;
   transition: opacity 200ms ease-in;
+}
+
+@layer base {
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-teal-700);
+  }
 }
