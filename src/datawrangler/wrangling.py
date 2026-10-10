@@ -43,7 +43,7 @@ class NoColumnsKeptError(Exception):
     """Raised when every column has been unticked."""
 
     def __init__(self, all_columns: list[str], signature: str) -> None:
-        super().__init__("Please keep at least one column.")
+        super().__init__("Please include at least one column.")
         self.all_columns = all_columns
         self.signature = signature
 

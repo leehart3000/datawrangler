@@ -72,5 +72,5 @@ def test_no_columns_shows_message_and_tick_boxes() -> None:
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 400
-    assert b"Please keep at least one column." in response.data
+    assert b"Please include at least one column." in response.data
     assert b'name="keep_columns"' in response.data
