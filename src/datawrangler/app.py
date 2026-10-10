@@ -24,6 +24,7 @@ from datawrangler.fileformat import (
     to_file_format,
 )
 from datawrangler.monitoring import init_sentry
+from datawrangler.security import add_security_headers
 from datawrangler.wrangling import (
     CleaningOptions,
     NoColumnsKeptError,
@@ -140,6 +141,7 @@ def create_app() -> Flask:
 
     # Trust the X-Forwarded-Host and X-Forwarded-Proto labels from the Cloudflare Worker.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_host=1, x_proto=1)  # type: ignore[method-assign]
+    app.after_request(add_security_headers)
 
     @app.get("/")
     def index() -> str:
