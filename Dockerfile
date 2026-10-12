@@ -1,7 +1,7 @@
 # Stage 1: build the CSS with Tailwind.
 FROM python:3.14-slim AS css
 
-ADD --chmod=755 https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.2/tailwindcss-linux-x64 /usr/local/bin/tailwindcss
+ADD --chmod=755 https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64 /usr/local/bin/tailwindcss
 
 WORKDIR /app
 COPY src ./src
