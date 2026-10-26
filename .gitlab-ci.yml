@@ -47,7 +47,7 @@ e2e:
 secrets:
   stage: check
   image:
-    name: trufflesecurity/trufflehog:3.99.0
+    name: trufflesecurity/trufflehog:3.99.7
     entrypoint: [""]
   variables:
     GIT_DEPTH: 0
