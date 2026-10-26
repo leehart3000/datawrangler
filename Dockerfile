@@ -10,7 +10,7 @@ RUN tailwindcss -i src/datawrangler/static/src/input.css -o src/datawrangler/sta
 # Stage 2: the app itself.
 FROM python:3.14-slim
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
