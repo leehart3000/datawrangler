@@ -14,7 +14,7 @@ variables:
 default:
   image: python:3.14-slim
   before_script:
-    - pip install --quiet uv==0.12.23
+    - pip install --quiet uv==0.13.5
     - uv sync --locked
 
 lint:
